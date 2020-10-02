@@ -43,7 +43,7 @@ data Path =
 data Expr = 
     PathExpr Path
   | New Binding Type [Declaration]
-  | Call Path [Expr]
+  | Call Path [Path]
   | IntLit Int
   | UnitLit
   deriving (Show)

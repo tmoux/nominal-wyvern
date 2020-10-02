@@ -36,13 +36,16 @@ typecheckDecl d = case d of
         ty <- typecheckExpr e
         --TODO: subtype check
         return $ ValRef b ty
+    DefDecl method args retTy prog -> do
+        --TODO: add args to ctx and typecheck prog
+        --local $ typecheckProgram prog
+        return $ DefRef method args retTy        
     TypeDecl t z decls -> do
         let zt = ValRef z (makeNomType t)
         --rs <- local (zt:) $ 
         return $ TypeRef t z decls
     TypeEq b ty -> do
         return $ MemberRef b EQQ ty
-    _ -> throwError "TODO decl"
 
 typecheckExpr :: Expr -> TCMonad Type
 typecheckExpr e = case e of
@@ -61,8 +64,28 @@ typecheckExpr e = case e of
                   pred _ = False
     New z ty decls ->
         return ty
+    Call p es -> do
+        (methodName,ctx) <- case p of 
+          Var (b,_) -> return (b,id) --top-level function, use regular context
+          Field path name -> do
+            pty <- typecheckExpr $ PathExpr path
+            (z,decls) <- unfold pty
+            return (name, const $ map (substRefines z path) decls)
+        let pred (DefRef (b,_) _ _) = b == methodName
+            pred _ = False
+        DefRef m args retTy <- local ctx $ lookupCtx pred
+        esTy <- mapM typecheckExpr (map PathExpr es)
+        --assert subtype check here
+        let subTy = foldr (\((x,_),exp) -> substType x exp) 
+                           retTy 
+                           (zip args es)
+        return subTy
+    IntLit _ -> do
+        TypeRef b _ _ <- lookupCtx pred
+        return $ makeNomType b
+        where pred (TypeRef (b',_) _ _) = b' == "Int"
+              pred _ = False
     UnitLit -> return theUnit
-    _ -> throwError "TODO expr"
 
 unfold :: Type -> TCMonad (Binding,[Refinement])
 unfold (Type base rs) = case base of
