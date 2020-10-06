@@ -1,0 +1,5 @@
+val a = Unit
+val b = 0
+val c = a
+//This is a test
+Unit

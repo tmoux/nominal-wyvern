@@ -10,7 +10,8 @@ data Declaration =
     ValDecl Binding Expr
   | DefDecl Binding [(Binding,Type)] Type Program
   | TypeDecl Binding Binding [Refinement]
-  | TypeEq Binding Type
+  | TypeEqDecl Binding Type
+  | SubtypeDecl Type Type
   deriving (Show)
 
 data Type = Type BaseType [Refinement]
@@ -30,6 +31,7 @@ data Refinement =
   | DefRef Binding [(Binding,Type)] Type
   | TypeRef Binding Binding [Refinement]
   | MemberRef Binding Bound Type
+  | SubtypeRef Type Type
   deriving (Show)
 
 data Bound = LEQ | EQQ | GEQ

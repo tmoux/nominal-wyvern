@@ -9,7 +9,7 @@ data Declaration =
     ValDecl Name Expr
   | DefDecl Name [(Name,Type)] Type Program
   | TypeDecl Name Name [Refinement]
-  | TypeEq Name Type
+  | TypeEqDecl Name Type
   | SubtypeDecl Type Type
   deriving (Show)
 

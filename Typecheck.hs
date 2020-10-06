@@ -18,7 +18,9 @@ lookupCtx pred = do
         Just x -> return x
         Nothing -> throwError "lookup failed"
 
-typecheck prog = runReader (runExceptT (typecheckProgram prog)) []
+typecheck prog = runReader (
+                   runExceptT (typecheckProgram prog)
+                 ) []
 
 typecheckProgram :: Program -> TCMonad Type
 typecheckProgram (Program decls expr) = do
@@ -44,7 +46,7 @@ typecheckDecl d = case d of
         let zt = ValRef z (makeNomType t)
         --rs <- local (zt:) $ 
         return $ TypeRef t z decls
-    TypeEq b ty -> do
+    TypeEqDecl b ty -> do
         return $ MemberRef b EQQ ty
 
 typecheckExpr :: Expr -> TCMonad Type
@@ -124,7 +126,7 @@ decls = [TypeDecl ("A",0) ("z",1)
           ValRef ("f",3) (Type (PathType $ Field (Var ("z",1)) "T") [])
           ]
        , ValDecl ("a",3) $ New ("y",4) (makeNomType ("A",0)) 
-          [TypeEq ("T",5) (makeNomType ("A",0)), 
+          [TypeEqDecl ("T",5) (makeNomType ("A",0)), 
            ValDecl ("f",6) UnitLit
           ]
         ]
