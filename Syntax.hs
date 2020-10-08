@@ -1,46 +1,41 @@
 module Syntax where
 
 type Name = String
-type Binding = (Name,Int)
+data Binding = Binding Name Int
+  deriving (Eq)
+data Arg = Arg Binding Type
 
 data Program = Program [Declaration] Expr
-    deriving (Show)
 
 data Declaration = 
     ValDecl Binding Expr
-  | DefDecl Binding [(Binding,Type)] Type Program
+  | DefDecl Binding [Arg] Type Program
   | TypeDecl Binding Binding [Refinement]
   | TypeEqDecl Binding Type
   | SubtypeDecl Type Type
-  deriving (Show)
 
 data Type = Type BaseType [Refinement]
-    deriving (Show)
 
 data BaseType =
     UnitType
   | BotType
   | PathType Path
-  deriving (Show)
 
 theUnit = Type UnitType []
 makeNomType s = Type (PathType $ Var s) []
 
 data Refinement =
     ValRef Binding Type
-  | DefRef Binding [(Binding,Type)] Type
+  | DefRef Binding [Arg] Type
   | TypeRef Binding Binding [Refinement]
   | MemberRef Binding Bound Type
   | SubtypeRef Type Type
-  deriving (Show)
 
 data Bound = LEQ | EQQ | GEQ
-  deriving (Show)
 
 data Path = 
     Var Binding
   | Field Path Name
-  deriving (Show)
 
 data Expr = 
     PathExpr Path
@@ -48,7 +43,6 @@ data Expr =
   | Call Path [Path]
   | IntLit Int
   | UnitLit
-  deriving (Show)
 
 subst :: Binding -> Path -> Path -> Path
 subst x p e = case e of
@@ -66,6 +60,7 @@ substBaseType x p b = case b of
 substRefines :: Binding -> Path -> Refinement -> Refinement
 substRefines x p r = case r of
     ValRef b ty          -> ValRef b (substType x p ty)
-    DefRef b args retTy  -> DefRef b (map (\(bi,t) -> (bi,substType x p t)) args) (substType x p retTy)
+    DefRef b args retTy  -> DefRef b (map (\(Arg bi t) -> Arg bi (substType x p t)) args) (substType x p retTy)
     TypeRef b z rs       -> TypeRef b z (map (substRefines x p) rs)
     MemberRef b bound ty -> MemberRef b bound (substType x p ty)
+

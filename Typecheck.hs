@@ -48,50 +48,61 @@ typecheckDecl d = case d of
         return $ TypeRef t z decls
     TypeEqDecl b ty -> do
         return $ MemberRef b EQQ ty
+    SubtypeDecl t1 t2 -> do
+        return $ SubtypeRef t1 t2
 
 typecheckExpr :: Expr -> TCMonad Type
 typecheckExpr e = case e of
-    PathExpr p -> case p of
-        Var b -> do
-            ValRef _ ty <- lookupCtx pred
-            return ty
-            where pred (ValRef b' _) = b == b'
-                  pred _ = False
-        Field p n -> do
-            tau <- typecheckExpr $ PathExpr p
-            (z,decls) <- unfold tau
-            ValRef _ tauv <- local (const decls) $ lookupCtx pred
-            return $ substType z p tauv
-            where pred (ValRef (b,_) _) = b == n
-                  pred _ = False
+    PathExpr p -> typecheckPath p
     New z ty decls ->
+        --TODO: implement this
         return ty
     Call p es -> do
         (methodName,ctx) <- case p of 
-          Var (b,_) -> return (b,id) --top-level function, use regular context
+          Var (Binding b _) -> return (b,id) --top-level function, use regular context
           Field path name -> do
-            pty <- typecheckExpr $ PathExpr path
+            pty <- typecheckPath path
             (z,decls) <- unfold pty
             return (name, const $ map (substRefines z path) decls)
-        let pred (DefRef (b,_) _ _) = b == methodName
+        let pred (DefRef (Binding b _) _ _) = b == methodName
             pred _ = False
         DefRef m args retTy <- local ctx $ lookupCtx pred
-        esTy <- mapM typecheckExpr (map PathExpr es)
-        --assert subtype check here
-        let subTy = foldr (\((x,_),exp) -> substType x exp) 
-                           retTy 
-                           (zip args es)
+
+        --subfunc creates the correct type by subbing in the arguments
+        let subfunc ty = foldr (\(Arg x _,exp) -> substType x exp) ty (zip args es)
+        let subTy = subfunc retTy --correct return type
+        let argTypes = map (\(Arg _ ty) -> ty) args
+        let argsTypeSubbed = map subfunc argTypes --correct arg types
+        esTys <- mapM typecheckPath es --calling types
+        --subtype check
+        checkPairwise isSubtype esTys argsTypeSubbed 
+          >>= assert "Subtype check failed when calling method"
         return subTy
     IntLit _ -> do
         TypeRef b _ _ <- lookupCtx pred
         return $ makeNomType b
-        where pred (TypeRef (b',_) _ _) = b' == "Int"
+        where pred (TypeRef (Binding b' _) _ _) = b' == "Int"
               pred _ = False
     UnitLit -> return theUnit
 
+typecheckPath :: Path -> TCMonad Type
+typecheckPath p = case p of
+    Var b -> do
+        ValRef _ ty <- lookupCtx pred
+        return ty
+        where pred (ValRef b' _) = b == b'
+              pred _ = False
+    Field p n -> do
+        tau <- typecheckPath p
+        (z,decls) <- unfold tau
+        ValRef _ tauv <- local (const decls) $ lookupCtx pred
+        return $ substType z p tauv
+        where pred (ValRef (Binding b _) _) = b == n
+              pred _ = False
+
 unfold :: Type -> TCMonad (Binding,[Refinement])
 unfold (Type base rs) = case base of
-    UnitType -> return (("z",-1),[]) --phony binding
+    UnitType -> return (Binding "z" (-1),[]) --phony binding
     PathType p -> case p of
         Var x -> do
             TypeRef _ z rs <- lookupCtx pred
@@ -99,16 +110,16 @@ unfold (Type base rs) = case base of
             where pred (TypeRef b _ _) = b == x
                   pred _ = False
         Field pa na -> do
-            tau <- typecheckExpr $ PathExpr pa
+            tau <- typecheckPath pa
             (z,decls) <- unfold tau
             d <- local (const decls) $ lookupCtx pred
             case d of
-              TypeRef _ z' rs -> return (z',map (substRefines z pa) rs)
+              TypeRef _ z' rs' -> return (z',map (substRefines z pa) rs')
               MemberRef _ bound ty -> case bound of
-                GEQ -> return (("z",-1),[]) --unit binding
+                GEQ -> return (Binding "z" (-1),[]) --unit binding
                 _ -> unfold $ substType z pa ty
-            where pred (TypeRef (b,_) _ _) = b == na
-                  pred (MemberRef (b,_) _ _) = b == na 
+            where pred (TypeRef (Binding b _)  _ _) = b == na
+                  pred (MemberRef (Binding b _) _ _) = b == na 
                   pred _ = False
     _  -> throwError "unfold: shouldn't happen?"
 
@@ -116,19 +127,11 @@ assert :: String -> Bool -> TCMonad ()
 assert err True = return ()
 assert err False = throwError err
 
+checkPairwise :: (a -> b -> TCMonad Bool) -> [a] -> [b] -> TCMonad Bool
+checkPairwise f as bs = foldM (\res (a,b) -> if res then f a b else return False) 
+                              True 
+                              (zip as bs)
+--subtyping
 isSubtype :: Type -> Type -> TCMonad Bool
 isSubtype a b = case a of
     _ -> return True
-
---testing
-decls = [TypeDecl ("A",0) ("z",1) 
-          [MemberRef ("T",2) LEQ theUnit, 
-          ValRef ("f",3) (Type (PathType $ Field (Var ("z",1)) "T") [])
-          ]
-       , ValDecl ("a",3) $ New ("y",4) (makeNomType ("A",0)) 
-          [TypeEqDecl ("T",5) (makeNomType ("A",0)), 
-           ValDecl ("f",6) UnitLit
-          ]
-        ]
-expr = PathExpr (Field (Var ("a",3)) "f")
-prog = Program decls expr

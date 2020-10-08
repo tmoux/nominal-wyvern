@@ -3,6 +3,7 @@ type A:z {
     val v : z.T
     def f (x:A) : x.T
 }
+subtype A extends Unit
 val a = new this:A {
     type T = Unit
     val v = Unit
@@ -11,4 +12,4 @@ val a = new this:A {
         ret
     }
 }
-a
+a.f(a)

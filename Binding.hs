@@ -19,7 +19,7 @@ newBinding :: Name -> BindMonad Binding
 newBinding name = do
     cnt <- get
     put (cnt+1)
-    return (name,cnt)
+    return $ Binding name cnt
 
 fetchVal :: Name -> BindMonad Binding
 fetchVal name = do
@@ -28,7 +28,7 @@ fetchVal name = do
         Just (BindVal b) -> return b
         Just _ -> throwError "shouldn't happen"
         Nothing -> throwError $ "binding lookup failed: " ++ name
-    where pred (BindVal (b,_)) = b == name
+    where pred (BindVal (Binding b _)) = b == name
           pred _ = False
 
 fetchType :: Name -> BindMonad Binding
@@ -38,7 +38,7 @@ fetchType name = do
         Just (BindType b) -> return b
         Just _ -> throwError "shouldn't happen"
         Nothing -> throwError $ "binding lookup failed: " ++ name
-    where pred (BindType (b,_)) = b == name
+    where pred (BindType (Binding b _)) = b == name
           pred _ = False
 
 toBindCtx :: Declaration -> Maybe BindCtx
@@ -82,7 +82,7 @@ bindDecl d = case d of
           n' <- newBinding n  
           t' <- bindType t
           (ns,p',ty') <- local (BindVal n':) $ bindArgs xs prog ty
-          return ((n',t'):ns,p',ty')
+          return (Arg n' t':ns,p',ty')
     (args',prog',ty') <- bindArgs args prog ty
     return $ DefDecl b' args' ty' prog'
   Raw.TypeDecl b z refines -> do
@@ -116,7 +116,7 @@ bindRefine r = case r of
           n' <- newBinding n
           t' <- bindType t
           (ns,ty') <- local (BindVal n':) $ bindArgs xs ty
-          return (((n',t'):ns),ty')
+          return ((Arg n' t':ns),ty')
     (args',ty') <- bindArgs args ty
     return $ DefRef b' args' ty'
   Raw.TypeRef b z refines -> do

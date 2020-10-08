@@ -8,6 +8,8 @@ import System.Console.CmdArgs
 import Text.ParserCombinators.Parsec
 import Parser
 import Binding
+import PrettyPrint
+import Typecheck
 
 printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)
 
@@ -40,3 +42,7 @@ main = do
                 Left err -> error (show err)
                 Right x -> x
     putStrLn $ "Bound AST:\n" ++ show bound_ast
+    let ty = case typecheck bound_ast of
+               Left err -> error (show err)
+               Right x -> x
+    putStrLn $ "Type: " ++ (show ty)

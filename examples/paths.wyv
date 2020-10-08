@@ -1,0 +1,25 @@
+type A:z {
+    type T <= Unit
+    val a:z.T
+}
+type B:z {
+    type S <= Unit
+    val b:A
+}
+type C:z {
+    type R <= Unit
+    val c:B
+}
+val aa = new this:A {
+    type T = Unit
+    val a = Unit
+}
+val bb = new this:B {
+    type S = Unit
+    val b = aa
+}
+val cc = new this:C {
+    type R = Unit
+    val c = bb
+}
+cc.c.b.a
