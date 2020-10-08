@@ -54,8 +54,14 @@ typecheckDecl d = case d of
 typecheckExpr :: Expr -> TCMonad Type
 typecheckExpr e = case e of
     PathExpr p -> typecheckPath p
-    New z ty decls ->
-        --TODO: implement this
+    New z ty decls -> do
+        (z',rs) <- unfold ty
+        let addtoCtx = (ValRef z ty:)
+        refines <- mapM typecheckDecl decls
+        let refines' = map (substRefines z (Var z')) refines
+        --assert that new expr is structural subtype of ty
+        checkPerm isSubtypeRef refines' rs
+          >>= assert "invalid new expression"
         return ty
     Call p es -> do
         (methodName,ctx) <- case p of 
@@ -127,11 +133,32 @@ assert :: String -> Bool -> TCMonad ()
 assert err True = return ()
 assert err False = throwError err
 
+--check that f is true for all zipped pairs
 checkPairwise :: (a -> b -> TCMonad Bool) -> [a] -> [b] -> TCMonad Bool
 checkPairwise f as bs = foldM (\res (a,b) -> if res then f a b else return False) 
                               True 
                               (zip as bs)
---subtyping
+
+--check that for all elem in b, there is an a s.t. (f a b)
+checkPerm :: (a -> b -> TCMonad Bool) -> [a] -> [b] -> TCMonad Bool
+checkPerm f as bs = 
+  foldM (\res b -> if res then search b else return False)
+        True
+        bs
+  where search b = g b as
+        g b [] = return False
+        g b (a:as) = do
+          res <- f a b
+          if res then return True 
+                 else g b as
+
+--subtyping 
 isSubtype :: Type -> Type -> TCMonad Bool
 isSubtype a b = case a of
     _ -> return True
+
+isSubtypeRef :: Refinement -> Refinement -> TCMonad Bool
+isSubtypeRef a b = return True
+--WF checks
+typeWF :: Type -> TCMonad Bool
+typeWF tau = return True
