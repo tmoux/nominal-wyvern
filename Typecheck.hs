@@ -4,6 +4,8 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.List (find)
 import Syntax
+import PrettyPrint
+import Text.Printf
 
 data Error = OtherErr String
     deriving (Show)
@@ -36,19 +38,29 @@ typecheckDecl :: Declaration -> TCMonad Refinement
 typecheckDecl d = case d of 
     ValDecl b e -> do
         ty <- typecheckExpr e
-        --TODO: subtype check
         return $ ValRef b ty
     DefDecl method args retTy prog -> do
-        --TODO: add args to ctx and typecheck prog
-        --local $ typecheckProgram prog
+        let argTypes = map (\(Arg _ t) -> t) args
+        (checkAll typeWF argTypes) >>=
+          assert "argument types not wf"
+        let argVals = map (\(Arg b t) -> ValRef b t) args
+        progTy <- local (argVals++) $ typecheckProgram prog
+        (isSubtype progTy retTy) >>=
+          assert "def expression has invalid subtype"
         return $ DefRef method args retTy        
     TypeDecl t z decls -> do
         let zt = ValRef z (makeNomType t)
-        --rs <- local (zt:) $ 
-        return $ TypeRef t z decls
+        let tt = TypeRef t z decls
+        (local ([tt,zt]++) $ checkAll refineWF decls) >>=
+          assert (printf "type %s not wf" (show t))
+        return tt
     TypeEqDecl b ty -> do
+        typeWF ty >>= 
+          assert ("type " ++ (show ty) ++ " not wf")
         return $ MemberRef b EQQ ty
     SubtypeDecl t1 t2 -> do
+        subtypeWF t1 t2 >>=
+          assert (printf "invalid subtype decl: %s %s" (show t1) (show t2))
         return $ SubtypeRef t1 t2
 
 typecheckExpr :: Expr -> TCMonad Type
@@ -56,8 +68,10 @@ typecheckExpr e = case e of
     PathExpr p -> typecheckPath p
     New z ty decls -> do
         (z',rs) <- unfold ty
-        let addtoCtx = (ValRef z ty:)
-        refines <- mapM typecheckDecl decls
+        let tcDecl d = case d of
+                         ValDecl _ _ -> typecheckDecl d
+                         _           -> local (ValRef z ty:) $ typecheckDecl d
+        refines <- mapM tcDecl decls
         let refines' = map (substRefines z (Var z')) refines
         --assert that new expr is structural subtype of ty
         checkPerm isSubtypeRef refines' rs
@@ -77,10 +91,11 @@ typecheckExpr e = case e of
         --subfunc creates the correct type by subbing in the arguments
         let subfunc ty = foldr (\(Arg x _,exp) -> substType x exp) ty (zip args es)
         let subTy = subfunc retTy --correct return type
-        let argTypes = map (\(Arg _ ty) -> ty) args
-        let argsTypeSubbed = map subfunc argTypes --correct arg types
+        let argsTypeSubbed = map subfunc (map (\(Arg _ ty) -> ty) args) --correct arg types
         esTys <- mapM typecheckPath es --calling types
         --subtype check
+        (return (length esTys == length argsTypeSubbed))
+          >>= assert "wrong # of arguments"
         checkPairwise isSubtype esTys argsTypeSubbed 
           >>= assert "Subtype check failed when calling method"
         return subTy
@@ -107,44 +122,46 @@ typecheckPath p = case p of
               pred _ = False
 
 unfold :: Type -> TCMonad (Binding,[Refinement])
-unfold (Type base rs) = case base of
-    UnitType -> return (Binding "z" (-1),[]) --phony binding
+unfold (Type base rs) = do
+  (z,baseRs) <- case base of
+    UnitType -> return (Binding "z" (-1),[]) --unit binding
     PathType p -> case p of
-        Var x -> do
-            TypeRef _ z rs <- lookupCtx pred
-            return (z,rs)
-            where pred (TypeRef b _ _) = b == x
-                  pred _ = False
-        Field pa na -> do
-            tau <- typecheckPath pa
-            (z,decls) <- unfold tau
-            d <- local (const decls) $ lookupCtx pred
-            case d of
-              TypeRef _ z' rs' -> return (z',map (substRefines z pa) rs')
-              MemberRef _ bound ty -> case bound of
-                GEQ -> return (Binding "z" (-1),[]) --unit binding
-                _ -> unfold $ substType z pa ty
-            where pred (TypeRef (Binding b _)  _ _) = b == na
-                  pred (MemberRef (Binding b _) _ _) = b == na 
-                  pred _ = False
+      Var x -> do
+        TypeRef _ z rs <- lookupCtx pred
+        return (z,rs)
+        where pred (TypeRef b _ _) = b == x
+              pred _ = False
+      Field pa na -> do
+        tau <- typecheckPath pa
+        (z,decls) <- unfold tau
+        d <- local (const decls) $ lookupCtx pred
+        case d of
+          TypeRef _ z' rs' -> return (z',map (substRefines z pa) rs')
+          MemberRef _ bound ty -> case bound of
+            GEQ -> return (Binding "z" (-1),[]) --unit binding
+            _ -> unfold $ substType z pa ty
+          where pred (TypeRef (Binding b _)  _ _) = b == na
+                pred (MemberRef (Binding b _) _ _) = b == na 
+                pred _ = False
     _  -> throwError "unfold: shouldn't happen?"
+  return (z,rs ++ baseRs) --maybe merge/overwrite the old decls?
 
 assert :: String -> Bool -> TCMonad ()
 assert err True = return ()
 assert err False = throwError err
 
+--check that all elements satisfy predicate
+checkAll :: (a -> TCMonad Bool) -> [a] -> TCMonad Bool
+checkAll f as = foldM (\res a -> if res then f a else return False) True as
 --check that f is true for all zipped pairs
 checkPairwise :: (a -> b -> TCMonad Bool) -> [a] -> [b] -> TCMonad Bool
-checkPairwise f as bs = foldM (\res (a,b) -> if res then f a b else return False) 
-                              True 
-                              (zip as bs)
+checkPairwise f as bs = foldM (\res (a,b) -> if res then f a b else return False) True (zip as bs)
 
---check that for all elem in b, there is an a s.t. (f a b)
+--check that for all b in bs, there exists an a s.t. (f a b) is true
+--yikes is there a better way to do this? monads are hard
 checkPerm :: (a -> b -> TCMonad Bool) -> [a] -> [b] -> TCMonad Bool
 checkPerm f as bs = 
-  foldM (\res b -> if res then search b else return False)
-        True
-        bs
+  foldM (\res b -> if res then search b else return False) True bs
   where search b = g b as
         g b [] = return False
         g b (a:as) = do
@@ -162,3 +179,9 @@ isSubtypeRef a b = return True
 --WF checks
 typeWF :: Type -> TCMonad Bool
 typeWF tau = return True
+
+refineWF :: Refinement -> TCMonad Bool
+refineWF r = return True
+
+subtypeWF :: Type -> Type -> TCMonad Bool
+subtypeWF t1 t2 = return True

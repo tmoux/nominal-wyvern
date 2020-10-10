@@ -37,7 +37,7 @@ main = do
     let raw_ast = case parse_res of
                 Left err -> error (show err)
                 Right x -> x
-    putStrLn $ "Raw AST:\n" ++ show raw_ast
+    --putStrLn $ "Raw AST:\n" ++ show raw_ast
     let bound_ast = case bind raw_ast of
                 Left err -> error (show err)
                 Right x -> x

@@ -1,0 +1,14 @@
+type Nat:z {
+
+}
+
+type Zero:z {
+
+}
+subtype Zero extends Nat
+
+type Succ:z {
+
+}
+subtype Succ extends Nat
+Unit

@@ -147,7 +147,7 @@ bindExpr e = case e of
   Raw.New name ty decls -> do
     b      <- newBinding name
     ty'    <- bindType ty
-    decls' <- mapM bindDecl decls
+    decls' <- local ((BindVal b):) $ mapM bindDecl decls
     return $ New b ty' decls'
   Raw.Call path args -> do
     path' <- bindPath path

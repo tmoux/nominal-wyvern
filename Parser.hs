@@ -148,8 +148,9 @@ new = New <$ reserved "new"
   <*> braces (many decl)
 
 --types
-ty = (\x -> Type x []) <$> basetype
- <|> Type <$> basetype <*> braces (refine `sepBy` comma)
+ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))
+     <|> (\x -> Type x []) <$> basetype
+
 
 basetype = UnitType <$ reserved "Unit"
        <|> BotType  <$ reserved "Bot"  

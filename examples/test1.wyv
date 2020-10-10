@@ -1,15 +1,15 @@
 type A:z {
     type T <= Unit
     val v : z.T
-    def f (x:A) : x.T
+    def f (x:A, y:A) : x.T
 }
 subtype A extends Unit
 val a = new this:A {
     type T = Unit
     val v = Unit
-    def f(x:A):x.T {
+    def f(x:A, y:A) : x.T {
         val ret = x.v
         ret
     }
 }
-a.f(a)
+a.f(a,a)
