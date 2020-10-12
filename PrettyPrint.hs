@@ -31,7 +31,7 @@ instance Show Declaration where
     DefDecl b args ty prog ->
       printf "def %s(%s):%s {\n%s\n}" (show b) (showSep ", " args) (show ty) (indent $ show prog)
     TypeDecl t z refines ->
-      printf "type %s:%s {\n%s\n}" (show t) (show z) (indent $ showSep "\n" refines)
+      printf "type %s {%s =>\n%s\n}" (show t) (show z) (indent $ showSep "\n" refines)
     TypeEqDecl b t ->
       printf "type %s = %s" (show b) (show t)
     SubtypeDecl t1 t2 ->
@@ -44,7 +44,7 @@ instance Show Refinement where
     DefRef b args ty ->
       printf "def %s(%s):%s" (show b) (showSep ", " args) (show ty)
     TypeRef t z refines ->
-      printf "type %s:%s {\n%s\n}" (show t) (show z) (indent $ showSep "\n" refines)
+      printf "type %s {%s =>\n%s\n}" (show t) (show z) (indent $ showSep "\n" refines)
     MemberRef b bound ty ->
       printf "type %s %s %s" (show b) (show bound) (show ty)
     SubtypeRef t1 t2 ->
@@ -64,8 +64,8 @@ instance Show Path where
 instance Show Expr where
   show e = case e of
     PathExpr p -> show p
-    New b ty decls ->
-      printf "new %s:%s {\n%s\n}" (show b) (show ty) (indent $ showSep "\n" decls)  
+    New ty b decls ->
+      printf "new %s {%s =>\n%s\n}" (show ty) (show b) (indent $ showSep "\n" decls)  
     Call meth args ->
       printf "%s(%s)" (show meth) (showSep ", " args)
     IntLit i -> show i

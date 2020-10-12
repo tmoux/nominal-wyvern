@@ -144,11 +144,11 @@ bindExpr e = case e of
   Raw.PathExpr p -> do
     p' <- bindPath p
     return $ PathExpr p'
-  Raw.New name ty decls -> do
-    b      <- newBinding name
+  Raw.New ty name decls -> do
     ty'    <- bindType ty
+    b      <- newBinding name
     decls' <- local ((BindVal b):) $ mapM bindDecl decls
-    return $ New b ty' decls'
+    return $ New ty' b decls'
   Raw.Call path args -> do
     path' <- bindPath path
     args' <- mapM bindPath args

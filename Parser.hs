@@ -31,6 +31,9 @@ languageDef =
                                       , "."
                                       , ":"
                                       , ","
+                                      , "{"
+                                      , "}"
+                                      , "=>"
                                       ]
     }
               
@@ -38,7 +41,7 @@ lexer = Token.makeTokenParser languageDef
 
 identifier = Token.identifier lexer
 reserved   = Token.reserved lexer
-reservedOp = Token.reservedOp lexer
+resOp = Token.reservedOp lexer
 parens     = Token.parens lexer
 braces     = Token.braces lexer
 integer    = Token.integer lexer
@@ -62,7 +65,7 @@ decl = try valdecl
 
 valdecl = ValDecl <$  reserved "val"
                   <*> identifier 
-                  <*  reservedOp "="
+                  <*  resOp "="
                   <*> expr
 
 defdecl = DefDecl <$  reserved "def"
@@ -74,13 +77,15 @@ defdecl = DefDecl <$  reserved "def"
 
 typedecl = TypeDecl <$  reserved "type"
                     <*> identifier
-                    <*  colon
-                    <*> identifier
-                    <*> braces (many refine)
+                    <*  resOp "{" 
+                    <*> identifier <* resOp "=>"
+                    <*> many refine
+                    <*  resOp "}"
+
 
 typeEqDecl = TypeEqDecl <$  reserved "type"
                 <*> identifier
-                <*  reservedOp "="
+                <*  resOp "="
                 <*> ty
 
 subtypedecl = SubtypeDecl <$  reserved "subtype"
@@ -107,9 +112,10 @@ defref = DefRef <$  reserved "def"
 
 typeref = TypeRef <$  reserved "type"
                   <*> identifier
-                  <*  colon
-                  <*> identifier
-                  <*> braces (many refine)
+                  <*  resOp "{"
+                  <*> identifier <* resOp "=>"
+                  <*> many refine
+                  <*  resOp "}"
 
 memberref = MemberRef <$  reserved "type"
                       <*> identifier
@@ -122,18 +128,22 @@ subtyperef = SubtypeRef <$  reserved "subtype"
                         <*> ty
 
 bound :: Parser Bound
-bound = LEQ <$ reservedOp "<="
-    <|> EQQ <$ reservedOp "="
-    <|> GEQ <$ reservedOp ">="
+bound = LEQ <$ resOp "<="
+    <|> EQQ <$ resOp "="
+    <|> GEQ <$ resOp ">="
 
 --expressions
 path :: Parser Path
 path = chainl1 (Var <$> identifier) ((\p (Var f) -> Field p f) <$ dot)
 
 expr = try call
+   <|> try add
    <|> try primary
 
 call = Call <$> path <*> parens (path `sepBy` comma)
+
+add = addCall <$> path <* resOp "+" <*> path
+  where addCall = \a b -> Call (Field a "plus") [b]
 
 primary = PathExpr <$> path
       <|> UnitLit <$ reserved "Unit"
@@ -142,10 +152,11 @@ primary = PathExpr <$> path
       <|> parens expr
 
 new = New <$ reserved "new" 
-  <*> identifier 
-  <*  colon 
-  <*> ty 
-  <*> braces (many decl)
+  <*> ty
+  <*  resOp "{"
+  <*> identifier <* resOp "=>"
+  <*> many decl
+  <*  resOp "}"
 
 --types
 ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))

@@ -28,12 +28,16 @@ debug header str 0 = return ()
 debug header str x = putStrLn $ header ++ str
 
 main = do
+    {-
     args <- cmdArgs generate
     let infile = input args
     let dbg_flag = debug_flag args
+    -}
 
+    [infile] <- getArgs
+    prelude <- readFile "lib/Prelude.wyv"
     input <- readFile infile
-    let parse_res = parse parseProgram "" input
+    let parse_res = parse parseProgram "" (prelude ++ input)
     let raw_ast = case parse_res of
                 Left err -> error (show err)
                 Right x -> x

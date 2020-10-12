@@ -32,14 +32,16 @@ data Refinement =
   | SubtypeRef Type Type
 
 data Bound = LEQ | EQQ | GEQ
+  deriving (Eq)
 
 data Path = 
     Var Binding
   | Field Path Name
+  deriving (Eq)
 
 data Expr = 
     PathExpr Path
-  | New Binding Type [Declaration]
+  | New Type Binding [Declaration]
   | Call Path [Path]
   | IntLit Int
   | UnitLit

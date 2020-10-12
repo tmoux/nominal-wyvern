@@ -1,46 +1,46 @@
-type Monoid:z {
+type Monoid {z =>
   type T <= Unit
   val id : z.T
   def op(a:z.T, b:z.T):z.T
 }
 
-type List:z {
+type List {z =>
   type T <= Unit
   def foldr(m:Monoid {type T >= z.T}):m.T
 }
 
-type Nil:z {
+type Nil {z =>
   type T <= Unit
   def foldr(m:Monoid {type T >= z.T}):m.T
 }
 subtype Nil extends List
 
-type Cons:z {
+type Cons {z =>
   type T <= Unit
   def foldr(m:Monoid {type T >= z.T}):m.T
   val head:z.T
   val tail:List {type T >= z.T}
 }
 
-type Param:z {
+type Param {z =>
   type A <= Unit
 }
-type AA:z {
+type AA {z =>
   def makeNil(a:Param):List {type T = a.A}
-  def makeCons(a:Param, x:a.A, xs:List {type T = a.A}):List {type T = a.A}
+  def makeCons(a:Param, x:a.A, xs:List {type T = a.A}):Cons {type T = a.A}
 }
 
-val aa = new this:AA {
+val aa = new AA {this =>
   def makeNil(a:Param):List {type T = a.A} {
     type T = a.A
-    new z:Nil {type T = a.A} {
+    new Nil {type T = a.A} {z =>
       def foldr(m:Monoid {type T >= z.T}):m.T {
         m.id
       }
     }
   }
-  def makeCons(a:Param, x:a.A, xs:List {type T = a.A}):List {type T = a.A} {
-    new z:Cons {type T = a.A} {
+  def makeCons(a:Param, x:a.A, xs:List {type T = a.A}):Cons {type T = a.A} {
+    new Cons {type T = a.A} {z =>
       type T = a.A
       def foldr(m:Monoid {type T >= z.T}):m.T {
         val tailVal = z.tail.foldr(m)
@@ -53,10 +53,10 @@ val aa = new this:AA {
   }
 }
 
-val UnitP = new this:Param {type A = Unit} {
+val UnitP = new Param {type A = Unit} {this =>
   type A = Unit
 }
-val UnitM = new z:Monoid {type T = Unit} {
+val UnitM = new Monoid {type T = Unit} {z =>
   type T = Unit
   val id = Unit
   def op(a:z.T, b:z.T):z.T {
@@ -67,4 +67,5 @@ val UnitM = new z:Monoid {type T = Unit} {
 val unit = Unit
 val unitNil = aa.makeNil(UnitP)
 val l1 = aa.makeCons(UnitP,unit,unitNil)
-l1.foldr(UnitM)
+//l1.foldr(UnitM)
+l1.tail

@@ -1,24 +1,24 @@
-type A:z {
+type A {z =>
     type T <= Unit
     val a:z.T
 }
-type B:z {
+type B {z =>
     type S <= Unit
     val b:A
 }
-type C:z {
+type C {z =>
     type R <= Unit
     val c:B
 }
-val aa = new this:A {
+val aa = new A {this =>
     type T = Unit
     val a = Unit
 }
-val bb = new this:B {
+val bb = new B {this =>
     type S = Unit
     val b = aa
 }
-val cc = new this:C {
+val cc = new C {this =>
     type R = Unit
     val c = bb
 }

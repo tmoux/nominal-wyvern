@@ -1,0 +1,46 @@
+type CreditCard {z => }
+type SecuredCard {z => }
+subtype SecuredCard extends CreditCard
+type AuthorizedUserCard {z => }
+subtype AuthorizedUserCard extends CreditCard
+
+type Bank {b =>
+  type Card <= Unit
+  def applyForCard(name:Int):b.Card
+  def payOff(c:b.Card):Unit
+}
+
+type RegionalBank {b =>
+  type Card <= SecuredCard
+  def applyForCard(name:Int):b.Card
+  def payOff(c:b.Card):Unit
+}
+subtype RegionalBank extends Bank
+
+type Utils {z =>
+  def giveChildren(card:SecuredCard):Unit
+}
+
+val pnc = new Bank {b =>
+  type Card = CreditCard
+  def applyForCard(name:Int):b.Card {
+    new CreditCard {z =>}
+  }
+  def payOff(c:b.Card):Unit {
+    Unit
+  }
+}
+val veryCautiousBank = new RegionalBank {b =>
+  type Card = SecuredCard
+  def applyForCard(name:Int):b.Card {
+    new SecuredCard {z =>}
+  }
+  def payOff(c:b.Card):Unit {
+    Unit
+  }
+}
+
+val one = 1
+val myCard = veryCautiousBank.applyForCard(one)
+val legal = veryCautiousBank.payOff(myCard)
+one

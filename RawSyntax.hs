@@ -40,7 +40,7 @@ data Path =
 
 data Expr = 
     PathExpr Path
-  | New Name Type [Declaration]
+  | New Type Name [Declaration]
   | Call Path [Path]
   | IntLit Int
   | UnitLit
