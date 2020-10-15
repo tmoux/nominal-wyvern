@@ -1,0 +1,12 @@
+type A {z =>
+  type T >= Bot
+}
+type B {z =>
+  type S <= Unit
+  type T = A {type T >= B {type S = B {type S = z.S}}}
+}
+val bad = new B {type S = Int} {this =>
+  type S = Int
+  type T = A {type T >= B {type S = B {type S = this.S}}}
+}
+Unit

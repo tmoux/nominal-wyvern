@@ -1,5 +1,5 @@
 type A {z =>
-    type T <= Unit
+    type T = Unit
     val v : z.T
     def f (x:A, y:A) : x.T
 }

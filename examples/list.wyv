@@ -32,8 +32,8 @@ type AA {z =>
 
 val aa = new AA {this =>
   def makeNil(a:Param):List {type T = a.A} {
-    type T = a.A
     new Nil {type T = a.A} {z =>
+      type T = a.A
       def foldr(m:Monoid {type T >= z.T}):m.T {
         m.id
       }
@@ -53,6 +53,8 @@ val aa = new AA {this =>
   }
 }
 
+Unit
+/*
 val UnitP = new Param {type A = Unit} {this =>
   type A = Unit
 }
@@ -69,3 +71,4 @@ val unitNil = aa.makeNil(UnitP)
 val l1 = aa.makeCons(UnitP,unit,unitNil)
 //l1.foldr(UnitM)
 l1.tail
+*/

@@ -6,6 +6,7 @@ import Data.List (find)
 import Syntax
 import PrettyPrint
 import Text.Printf
+import Debug.Trace
 
 data Error = OtherErr String
     deriving (Show)
@@ -19,6 +20,16 @@ lookupCtx pred = do
     case (find pred gamma) of
         Just x -> return x
         Nothing -> throwError $ "lookup failed"
+
+searchCtx :: (Refinement -> TCMonad Bool) -> TCMonad Bool
+searchCtx pred = do
+    gamma <- ask
+    f gamma 
+    where f [] = return False
+          f (x:xs) = do
+            search <- pred x
+            if search then return True
+                      else f xs
 
 typecheck prog = runReader (
                    runExceptT (typecheckProgram prog)
@@ -56,7 +67,7 @@ typecheckDecl d = case d of
         typeWF ty >>= assert ("type " ++ (show ty) ++ " not wf")
         return $ MemberRef b EQQ ty
     SubtypeDecl t1 t2 -> do
-        subtypeWF t1 t2 >>= assert (printf "invalid subtype decl: %s %s" (show t1) (show t2))
+        refineWF (SubtypeRef t1 t2) >>= assert (printf "invalid subtype decl: %s %s" (show t1) (show t2))
         return $ SubtypeRef t1 t2
 
 typecheckExpr :: Expr -> TCMonad Type
@@ -70,7 +81,7 @@ typecheckExpr e = case e of
         refines <- mapM tcDecl decls
         let refines' = map (substRefines z (Var z')) refines
         --assert that new expr is structural subtype of ty
-        checkPerm isSubtypeRef refines' rs >>= assert "invalid new expression"
+        local (ValRef z' ty:) $ checkPerm isSubtypeRef refines' rs >>= assert "invalid new expression"
         return ty
     Call p es -> do
         (methodName,ctx) <- case p of 
@@ -116,9 +127,10 @@ typecheckPath p = case p of
         where pred (ValRef (Binding b _) _) = b == n
               pred _ = False
 
-unfold :: Type -> TCMonad (Binding,[Refinement])
-unfold (Type base rs) = do
-  (z,baseRs) <- case base of
+--unfold
+
+unfoldBaseType :: BaseType -> TCMonad (Binding,[Refinement])
+unfoldBaseType base = case base of
     UnitType -> return (Binding "z" (-1),[]) --unit binding
     PathType p -> case p of
       Var x -> do
@@ -139,6 +151,10 @@ unfold (Type base rs) = do
                 pred (MemberRef (Binding b _) _ _) = b == na 
                 pred _ = False
     _  -> throwError "unfold: shouldn't happen?"
+
+unfold :: Type -> TCMonad (Binding,[Refinement])
+unfold (Type base rs) = do
+  (z,baseRs) <- unfoldBaseType base  
   return (z,rs ++ baseRs) --maybe merge/overwrite the old decls?
 
 assert :: String -> Bool -> TCMonad ()
@@ -197,9 +213,9 @@ equalRef r1 r2 =
     (ValRef b1 t1,ValRef b2 t2) -> do
       eqTy <- equalType t1 t2
       return $ b1 == b2 && eqTy
-    (TypeRef (Binding t1 _) z1 r1,TypeRef (Binding t2 _) z2 r2) -> do
+    (TypeRef b@(Binding t1 _) z1 r1,TypeRef (Binding t2 _) z2 r2) -> do
       let r2' = map (substRefines z2 (Var z1)) r2  
-      eqRefs <- checkPermDual equalRef r1 r2'
+      eqRefs <- local (ValRef z1 (makeNomType b):) $ checkPermDual equalRef r1 r2'
       return $ t1 == t2 && eqRefs
     (DefRef (Binding b1 _) args1 t1,DefRef (Binding b2 _) args2 t2) -> do
       let types1 = map (\(Arg _ t) -> t) args1
@@ -217,44 +233,141 @@ equalRef r1 r2 =
 
 --subtyping 
 isSubtype :: Type -> Type -> TCMonad Bool
-isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = do
-  --throwError (show b1 ++ " :: " ++ show b2)
+isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
+  --traceM (show b1 ++ " <: " ++ show b2)
   eqBase <- equalBaseType b1 b2 
-  return True
-  {-
   if eqBase then checkPerm isSubtypeRef r1 r2 
             else do recl <- recLHS
                     recr <- recRHS
                     norm <- normalAns
                     return $ recl || recr || norm
   where 
-    recLHS = return True
-    recRHS = return True
+    pred name (MemberRef (Binding b _) _ _) = name == b
+    pred _ _ = False
+    recLHS = case b1 of
+      PathType (Field path name) -> do
+        pathTy <- typecheckPath path
+        (z,prs) <- unfold pathTy
+        MemberRef _ bound (Type base rs) <- local (const prs) $ lookupCtx (pred name)
+        case bound of
+          GEQ -> return False
+          _   -> do
+            let subbedType = substType z path $ Type base (r1 ++ rs)
+            isSubtype subbedType t2
+      _ -> return False
+    recRHS = case b2 of
+      PathType (Field path name) -> do
+        pathTy@(Type base rs) <- typecheckPath path
+        (z,prs) <- unfold pathTy
+        MemberRef _ bound (Type base rs) <- local (const prs) $ lookupCtx (pred name)
+        case bound of
+          LEQ -> return False
+          _   -> do
+            let subbedType = substType z path $ Type base (r2 ++ rs)
+            isSubtype t1 subbedType
+      _ -> return False
     normalAns = do
       eqUnit <- equalType t2 theUnit
-      let eqBot = case b1 of
-                    BotType -> True
-                    _       -> False
-      baseCheck <- do
-        isBase <- isSubtypeBase t1 b2
-        if isBase then do
-             (z,r1') <- unfold t1
-             local (ValRef z t1:) $ checkPerm isSubtypeRef r1' r2
-          else return False
-      return $ eqUnit || eqBot || baseCheck
-      -}
+      if eqUnit then return True
+        else do
+          let eqBot = case b1 of
+                        BotType -> True
+                        _       -> False
+          if eqBot then return True
+            else do
+              isBase <- isSubtypeBase t1 b2
+              if isBase then do
+                  (z,r1') <- unfold t1
+                  local (ValRef z t1:) $ checkPerm isSubtypeRef r1' r2
+                else return False
  
 isSubtypeBase :: Type -> BaseType -> TCMonad Bool
-isSubtypeBase t1 b2 = return True
+isSubtypeBase (Type b1 r1) b2 = do
+  --traceM ("isb: " ++ show (Type b1 r1) ++ " <: " ++ show b2)
+  eqBase <- equalBaseType b1 b2
+  if eqBase then return True
+    else do
+      ctxOp <- case b1 of
+        PathType (Field path name) -> do
+          pathTy <- typecheckPath path
+          (z,prs) <- unfold pathTy
+          return $ const $ map (substRefines z path) prs
+        _ -> return id
+      search <- local ctxOp $ searchCtx pred
+      return $ search
+  where pred (SubtypeRef (Type baseL rsL) (Type baseR _)) = do
+          eqBase <- equalBaseType b1 baseL
+          if not eqBase then return False
+            else do
+              structSub <- checkPerm isSubtypeRef r1 rsL
+              if not structSub then return False
+                else isSubtypeBase (Type baseR r1) b2
+        pred _ = return False
 
 isSubtypeRef :: Refinement -> Refinement -> TCMonad Bool
-isSubtypeRef a b = return True
+isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
+  (ValRef (Binding b1 _) t1,ValRef (Binding b2 _) t2) -> do
+    let sameName = b1 == b2 
+    isSub <- isSubtype t1 t2
+    return $ sameName && isSub
+  (DefRef (Binding b1 _) args1 t1,DefRef (Binding b2 _) args2 t2) -> do
+    let sameName = b1 == b2
+    let types1 = map (\(Arg _ t) -> t) args1
+    let types2 = map (\(Arg _ t) -> t) args2
+    argsSubtype <- checkPerm isSubtype types2 types1 --contra
+    let vs1 = map (\(Arg v t) -> ValRef v t) args1
+    let vs2 = map (\(Arg v t) -> ValRef v t) args2
+    retSubtype <- local ((vs1 ++ vs2) ++) $ isSubtype t1 t2 --cov
+    return $ sameName && argsSubtype && retSubtype
+  (TypeRef b@(Binding t1 _) z1 rs1,TypeRef (Binding t2 _) z2 rs2) -> do
+    let sameName = t1 == t2
+    let rs2' = map (substRefines z2 (Var z1)) rs2
+    isEq <- local (ValRef z1 (makeNomType b):) $ checkPerm equalRef rs1 rs2'
+    return $ sameName && isEq
+  (MemberRef (Binding b1 _) bound1 t1,MemberRef (Binding b2 _) bound2 t2) -> do
+    if b1 == b2 then
+      case (bound1,bound2) of
+        (EQQ,EQQ) -> checkEq
+        (LEQ,LEQ) -> checkCovariant
+        (EQQ,LEQ) -> checkCovariant
+        (GEQ,GEQ) -> checkContravariant
+        (EQQ,GEQ) -> checkContravariant
+        _ -> return False
+      else return False
+        where
+          checkEq            = equalType t1 t2
+          checkCovariant     = isSubtype t1 t2
+          checkContravariant = isSubtype t2 t1
+  (SubtypeRef s1 t1,SubtypeRef s2 t2) -> do
+    sEq <- equalType s1 s2
+    tEq <- equalType t1 t2
+    return $ sEq && tEq
+  _ -> return False
 --WF checks
 typeWF :: Type -> TCMonad Bool
-typeWF tau = return True
+typeWF (Type _ []) = return True
+typeWF t@(Type base rs) = do
+  (z,rs1) <- unfold t
+  (_,rs2) <- unfoldBaseType base
+  local (ValRef z t:) $ checkPerm isSubtypeRef rs1 rs2
 
 refineWF :: Refinement -> TCMonad Bool
-refineWF r = return True
-
-subtypeWF :: Type -> Type -> TCMonad Bool
-subtypeWF t1 t2 = return True
+refineWF r = case r of
+  ValRef _ t -> typeWF t
+  DefRef _ args retTy -> do
+    let vs = map (\(Arg b t) -> ValRef b t) args
+    argsWF <- f vs
+    retTyWF <- local (vs++) $ typeWF retTy
+    return $ argsWF && retTyWF
+      where f []     = return True
+            f (r:rs) = do
+              b <- refineWF r
+              if b then local (r:) $ f rs 
+                   else return False
+  tr@(TypeRef t z rs) -> do
+    local ([ValRef z (makeNomType t),tr]++) $ checkAll refineWF rs
+  MemberRef _ _ t -> typeWF t
+  s@(SubtypeRef t1 t2) -> do
+    (z,rs)   <- unfold t1
+    (z',rs') <- unfold t2
+    local ([ValRef z t1,s]++) $ checkPerm isSubtypeRef rs (map (substRefines z' (Var z)) rs')
