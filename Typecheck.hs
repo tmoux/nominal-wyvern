@@ -70,18 +70,26 @@ typecheckDecl d = case d of
         refineWF (SubtypeRef t1 t2) >>= assert (printf "invalid subtype decl: %s %s" (show t1) (show t2))
         return $ SubtypeRef t1 t2
 
+merge :: Type -> [Refinement] -> Type
+merge (Type base rs) rs' = Type base (rs' ++ rs)
+
+ref []                       = []
+ref (x@(MemberRef _ _ _):xs) = x:ref xs
+ref (_:xs)                   = ref xs
+
 typecheckExpr :: Expr -> TCMonad Type
 typecheckExpr e = case e of
     PathExpr p -> typecheckPath p
-    New ty z decls -> do
-        (z',rs) <- unfold ty
+    New ty z rs -> do
+        (z_old,rs_old) <- unfold ty
         let tcDecl d = case d of
                          ValDecl _ _ -> typecheckDecl d
                          _           -> local (ValRef z ty:) $ typecheckDecl d
-        refines <- mapM tcDecl decls
-        let refines' = map (substRefines z (Var z')) refines
+        rs' <- mapM tcDecl rs
+        let rs_old' = map (substRefines z_old (Var z)) rs_old
         --assert that new expr is structural subtype of ty
-        local (ValRef z' ty:) $ checkPerm isSubtypeRef refines' rs >>= assert "invalid new expression"
+        local (ValRef z (merge ty (ref rs')):) $ checkPerm isSubtypeRef rs' rs_old' 
+          >>= assert ("invalid new expression:" ++ (show ty))
         return ty
     Call p es -> do
         (methodName,ctx) <- case p of 
@@ -234,7 +242,7 @@ equalRef r1 r2 =
 --subtyping 
 isSubtype :: Type -> Type -> TCMonad Bool
 isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
-  --traceM (show b1 ++ " <: " ++ show b2)
+  traceM (show b1 ++ " <: " ++ show b2)
   eqBase <- equalBaseType b1 b2 
   if eqBase then checkPerm isSubtypeRef r1 r2 
             else do recl <- recLHS
@@ -327,7 +335,7 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
   (MemberRef (Binding b1 _) bound1 t1,MemberRef (Binding b2 _) bound2 t2) -> do
     if b1 == b2 then
       case (bound1,bound2) of
-        (EQQ,EQQ) -> checkEq
+        (EQQ,EQQ) -> checkEq --cov && contra?
         (LEQ,LEQ) -> checkCovariant
         (EQQ,LEQ) -> checkCovariant
         (GEQ,GEQ) -> checkContravariant

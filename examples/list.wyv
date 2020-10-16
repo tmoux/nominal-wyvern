@@ -30,6 +30,8 @@ type AA {z =>
   def makeCons(a:Param, x:a.A, xs:List {type T = a.A}):Cons {type T = a.A}
 }
 
+Unit
+/*
 val aa = new AA {this =>
   def makeNil(a:Param):List {type T = a.A} {
     new Nil {type T = a.A} {z =>
@@ -53,8 +55,6 @@ val aa = new AA {this =>
   }
 }
 
-Unit
-/*
 val UnitP = new Param {type A = Unit} {this =>
   type A = Unit
 }

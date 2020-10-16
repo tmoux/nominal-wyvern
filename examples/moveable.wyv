@@ -1,0 +1,62 @@
+type IntPair {z =>
+  val l:Int
+  val r:Int
+}
+type Moveable {m =>
+  type T <= Unit
+  def move(amt:IntPair):m.T
+}
+type Point {p =>
+  type T = Point
+  val x:Int
+  val y:Int
+  def move(amt:IntPair):p.T
+}
+subtype Point extends Moveable
+
+type FMoveable {x =>
+  type T <= Moveable {type T <= x.T}
+  val obj:x.T
+}
+type Utils {z =>
+  def translate(arg:FMoveable):arg.T
+}
+val utils = new Utils {this =>
+  def translate(arg:FMoveable):arg.T {
+    val p = new IntPair {z =>
+      val l = 1
+      val r = 1
+    }
+    arg.obj.move(p)
+  }
+}
+type PointCons {pc =>
+  def create(pos:IntPair):Point
+}
+val pointCons = new PointCons {pc =>
+  def create(pos:IntPair):Point {
+    new Point {p =>
+      type T = Point
+      val x = pos.l
+      val y = pos.r
+      def move(amt:IntPair):Point {
+        val newp = new IntPair {z =>
+          val l = p.x + amt.l
+          val r = p.y + amt.r
+        }
+        pc.create(newp)
+      }
+    }
+  }
+}
+
+val zz = new IntPair {z =>
+  val l = 0
+  val r = 0
+}
+val origin = pointCons.create(zz)
+val fm = new FMoveable {xx =>
+  type T = Point
+  val obj = origin
+}
+utils.translate(fm)
