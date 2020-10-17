@@ -1,3 +1,0 @@
-type Int {z =>
-    def plus(a:Int):Int
-}
