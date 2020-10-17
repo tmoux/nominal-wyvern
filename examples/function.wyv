@@ -1,0 +1,28 @@
+type Function {z =>
+  type A <= Unit
+  type B <= Unit
+  def apply(a:z.A):z.B
+  def compose(g:Function {type A = z.B}):Function {type T = z.A, type B = g.B}
+}
+
+type Functor {z =>
+  type T <= Unit
+  def fmap(fn:Function,a:Functor {type T = fn.A}):Functor{ type T = fn.B}
+}
+
+type Maybe {z =>
+  type U <= Unit
+}
+
+type Nothing {z =>
+  type U <= Unit
+}
+subtype Nothing extends Maybe
+
+type Just {z => 
+  type U <= Unit
+  val x:z.U
+}
+subtype Just extends Maybe
+
+Unit

@@ -4,6 +4,7 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.List (find)
 import Syntax
+import TypeUtil
 import PrettyPrint
 import Text.Printf
 import Debug.Trace
@@ -52,8 +53,8 @@ typecheckDecl d = case d of
         return $ ValRef b ty
     DefDecl method args retTy prog -> do
         let argTypes = map (\(Arg _ t) -> t) args
-        (checkAll typeWF argTypes) >>= assert "argument types not wf"
         let argVals = map (\(Arg b t) -> ValRef b t) args
+        (local (argVals++) $ (checkAll typeWF argTypes)) >>= assert "argument types not wf"
         progTy <- local (argVals++) $ typecheckProgram prog
         (local (argVals++) $ isSubtype progTy retTy) >>= assert "def expression has invalid subtype"
         return $ DefRef method args retTy        
@@ -69,13 +70,6 @@ typecheckDecl d = case d of
     SubtypeDecl t1 t2 -> do
         refineWF (SubtypeRef t1 t2) >>= assert (printf "invalid subtype decl: %s %s" (show t1) (show t2))
         return $ SubtypeRef t1 t2
-
-merge :: Type -> [Refinement] -> Type
-merge (Type base rs) rs' = Type base (rs' ++ rs)
-
-ref []                       = []
-ref (x@(MemberRef _ _ _):xs) = x:ref xs
-ref (_:xs)                   = ref xs
 
 typecheckExpr :: Expr -> TCMonad Type
 typecheckExpr e = case e of
@@ -163,7 +157,7 @@ unfoldBaseType base = case base of
 unfold :: Type -> TCMonad (Binding,[Refinement])
 unfold (Type base rs) = do
   (z,baseRs) <- unfoldBaseType base  
-  return (z,rs ++ baseRs) --maybe merge/overwrite the old decls?
+  return (z,mergeRefs rs baseRs) --maybe merge/overwrite the old decls?
 
 assert :: String -> Bool -> TCMonad ()
 assert err True = return ()
@@ -197,7 +191,7 @@ checkPermDual f as bs = do
 --type equality
 equalBaseType :: BaseType -> BaseType -> TCMonad Bool
 equalBaseType a b = 
-  case (a,b) of
+  {-trace ("eq base type " ++ show a ++ " " ++ show b) $-} case (a,b) of
     (UnitType,UnitType) -> return True
     (BotType,BotType)   -> return True
     (PathType (Var n1), PathType (Var n2)) -> return $ n1 == n2
@@ -205,12 +199,15 @@ equalBaseType a b =
       tau1 <- typecheckPath p1
       tau2 <- typecheckPath p2
       let eqPath = p1 == p2
-      eqTy <- equalType tau1 tau2
-      return $ (eqPath || eqTy) && (n1 == n2)
+      if eqPath then return $ n1 == n2
+        else do
+          eqTy <- equalType tau1 tau2
+          return $ eqTy && (n1 == n2)
     _ -> return False  
 
 equalType :: Type -> Type -> TCMonad Bool
 equalType (Type b1 r1) (Type b2 r2) = do
+  --traceM $ (show (Type b1 r1)) ++ " = " ++ (show (Type b2 r2))
   eqBase <- equalBaseType b1 b2
   eqRefs <- checkPermDual equalRef r1 r2
   return $ eqBase && eqRefs
@@ -242,7 +239,7 @@ equalRef r1 r2 =
 --subtyping 
 isSubtype :: Type -> Type -> TCMonad Bool
 isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
-  traceM (show b1 ++ " <: " ++ show b2)
+  --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2 
   if eqBase then checkPerm isSubtypeRef r1 r2 
             else do recl <- recLHS
@@ -322,9 +319,9 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
     let sameName = b1 == b2
     let types1 = map (\(Arg _ t) -> t) args1
     let types2 = map (\(Arg _ t) -> t) args2
-    argsSubtype <- checkPerm isSubtype types2 types1 --contra
     let vs1 = map (\(Arg v t) -> ValRef v t) args1
     let vs2 = map (\(Arg v t) -> ValRef v t) args2
+    argsSubtype <- local ((vs1 ++ vs2) ++) $ checkPerm isSubtype types2 types1 --contra
     retSubtype <- local ((vs1 ++ vs2) ++) $ isSubtype t1 t2 --cov
     return $ sameName && argsSubtype && retSubtype
   (TypeRef b@(Binding t1 _) z1 rs1,TypeRef (Binding t2 _) z2 rs2) -> do
@@ -364,7 +361,7 @@ refineWF r = case r of
   ValRef _ t -> typeWF t
   DefRef _ args retTy -> do
     let vs = map (\(Arg b t) -> ValRef b t) args
-    argsWF <- f vs
+    argsWF <- local (vs++) $ checkAll refineWF vs
     retTyWF <- local (vs++) $ typeWF retTy
     return $ argsWF && retTyWF
       where f []     = return True
