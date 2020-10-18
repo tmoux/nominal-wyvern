@@ -8,7 +8,7 @@ data Arg = Arg Binding Type
 data Program = Program [Declaration] Expr
 
 data Declaration = 
-    ValDecl Binding Expr
+    ValDecl Binding (Maybe Type) Expr
   | DefDecl Binding [Arg] Type Program
   | TypeDecl Binding Binding [Refinement]
   | TypeEqDecl Binding Type

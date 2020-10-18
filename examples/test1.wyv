@@ -4,7 +4,7 @@ type A {z =>
     def f (x:A, y:A) : x.T
 }
 subtype A extends Unit
-val a = new A {this =>
+val a : A = new A {this =>
     type T = Unit
     val v = Unit
     def f(x:A, y:A) : x.T {

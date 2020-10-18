@@ -58,6 +58,7 @@ parseProgram = whiteSpace >> parseProgram'
 --declarations
 decl :: Parser Declaration
 decl = try valdecl 
+   <|> try valAnnotDecl
    <|> try defdecl
    <|> try typedecl
    <|> try typeEqDecl
@@ -67,6 +68,13 @@ valdecl = ValDecl <$  reserved "val"
                   <*> identifier 
                   <*  resOp "="
                   <*> expr
+
+valAnnotDecl = ValAnnotDecl <$  reserved "val"
+                            <*> identifier
+                            <*  colon
+                            <*> ty
+                            <*  resOp "="
+                            <*> expr
 
 defdecl = DefDecl <$  reserved "def"
                   <*> identifier

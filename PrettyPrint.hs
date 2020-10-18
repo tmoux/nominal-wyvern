@@ -26,8 +26,10 @@ instance Show Program where
 
 instance Show Declaration where
   show d = case d of
-    ValDecl b e -> 
+    ValDecl b Nothing e -> 
       printf "val %s = %s" (show b) (show e)
+    ValDecl b (Just ty) e ->
+      printf "val %s : %s = %s" (show b) (show ty) (show e)
     DefDecl b args ty prog ->
       printf "def %s(%s):%s {\n%s\n}" (show b) (showSep ", " args) (show ty) (indent $ show prog)
     TypeDecl t z refines ->

@@ -43,7 +43,7 @@ fetchType name = do
 
 toBindCtx :: Declaration -> Maybe BindCtx
 toBindCtx d = case d of
-  ValDecl b _    -> Just $ BindVal b
+  ValDecl b _ _  -> Just $ BindVal b
   TypeDecl b _ _ -> Just $ BindType b
   _ -> Nothing
 
@@ -71,7 +71,12 @@ bindDecl d = case d of
   Raw.ValDecl b e -> do  
     b' <- newBinding b   
     e' <- bindExpr e
-    return $ ValDecl b' e'
+    return $ ValDecl b' Nothing e'
+  Raw.ValAnnotDecl b ty e -> do
+    b'  <- newBinding b
+    ty' <- bindType ty
+    e'  <- bindExpr e
+    return $ ValDecl b' (Just ty') e'
   Raw.DefDecl b args ty prog -> do
     b' <- newBinding b
     let bindArgs [] prog ty = do

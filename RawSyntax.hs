@@ -7,6 +7,7 @@ data Program = Program [Declaration] Expr
 
 data Declaration = 
     ValDecl Name Expr
+  | ValAnnotDecl Name Type Expr
   | DefDecl Name [(Name,Type)] Type Program
   | TypeDecl Name Name [Refinement]
   | TypeEqDecl Name Type
