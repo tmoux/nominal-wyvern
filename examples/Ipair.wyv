@@ -1,0 +1,16 @@
+type Pair {z =>
+  type S <= Unit
+  type T <= Unit
+}
+type IPair {z =>
+  type S = Int
+  type T <= Unit
+}
+subtype IPair extends Pair
+
+//we expect this is a valid subtype?
+val test : Pair {type S = Int, type T = Int} = new IPair {type T = Int} {z =>
+  type S = Int
+  type T = Int
+}
+test

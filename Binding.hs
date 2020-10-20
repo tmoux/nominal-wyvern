@@ -44,8 +44,11 @@ fetchType name = do
 toBindCtx :: Declaration -> Maybe BindCtx
 toBindCtx d = case d of
   ValDecl b _ _  -> Just $ BindVal b
-  TypeDecl b _ _ -> Just $ BindType b
+  TypeDecl _ b _ _ -> Just $ BindType b
   _ -> Nothing
+
+convertTA Raw.Shape    = Shape
+convertTA Raw.Material = Material
 
 bind prog = evalState (
               runReaderT (
@@ -90,13 +93,14 @@ bindDecl d = case d of
           return (Arg n' t':ns,p',ty')
     (args',prog',ty') <- bindArgs args prog ty
     return $ DefDecl b' args' ty' prog'
-  Raw.TypeDecl b z refines -> do
+  Raw.TypeDecl ta b z refines -> do
+    let ta' = convertTA ta
     b' <- newBinding b
     z' <- newBinding z
     let tType = BindType b'
     let zVar = BindVal z'    
     refines' <- local ([zVar,tType] ++) $ mapM bindRefine refines
-    return $ TypeDecl b' z' refines'
+    return $ TypeDecl ta' b' z' refines'
   Raw.TypeEqDecl b ty -> do
     b' <- newBinding b
     ty' <- bindType ty
@@ -124,21 +128,23 @@ bindRefine r = case r of
           return ((Arg n' t':ns),ty')
     (args',ty') <- bindArgs args ty
     return $ DefRef b' args' ty'
-  Raw.TypeRef b z refines -> do
+  Raw.TypeRef ta b z refines -> do
+    let ta' = convertTA ta
     b' <- newBinding b
     z' <- newBinding z
     let tType = BindType b'
     let zVar = BindVal z'
     refines' <- local ([zVar,tType] ++) $ mapM bindRefine refines
-    return $ TypeRef b' z' refines'
-  Raw.MemberRef b bound ty -> do
+    return $ TypeRef ta' b' z' refines'
+  Raw.MemberRef ta b bound ty -> do
+    let ta' = convertTA ta
     b' <- newBinding b
     let bound' = case bound of
                   Raw.LEQ -> LEQ
                   Raw.EQQ -> EQQ
                   Raw.GEQ -> GEQ
     ty' <- bindType ty
-    return $ MemberRef b' bound' ty'
+    return $ MemberRef ta' b' bound' ty'
   Raw.SubtypeRef t1 t2 -> do
     t1' <- bindType t1
     t2' <- bindType t2

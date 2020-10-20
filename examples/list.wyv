@@ -1,5 +1,5 @@
-type Monoid {z =>
-  type T <= Unit
+@shape type Monoid {z =>
+  type T >= Bot
   val id : z.T
   def op(a:z.T, b:z.T):z.T
 }

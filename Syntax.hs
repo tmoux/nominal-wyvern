@@ -5,12 +5,14 @@ data Binding = Binding Name Int
   deriving (Eq)
 data Arg = Arg Binding Type
 
+data TypeAnnot = Shape | Material
+
 data Program = Program [Declaration] Expr
 
 data Declaration = 
     ValDecl Binding (Maybe Type) Expr
   | DefDecl Binding [Arg] Type Program
-  | TypeDecl Binding Binding [Refinement]
+  | TypeDecl TypeAnnot Binding Binding [Refinement]
   | TypeEqDecl Binding Type
   | SubtypeDecl Type Type
 
@@ -27,8 +29,8 @@ makeNomType s = Type (PathType $ Var s) []
 data Refinement =
     ValRef Binding Type
   | DefRef Binding [Arg] Type
-  | TypeRef Binding Binding [Refinement]
-  | MemberRef Binding Bound Type
+  | TypeRef TypeAnnot Binding Binding [Refinement]
+  | MemberRef TypeAnnot Binding Bound Type
   | SubtypeRef Type Type
 
 data Bound = LEQ | EQQ | GEQ

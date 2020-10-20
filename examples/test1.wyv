@@ -1,4 +1,4 @@
-type A {z =>
+@shape type A {z =>
     type T <= Unit
     val v : z.T
     def f (x:A, y:A) : x.T

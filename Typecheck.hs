@@ -23,6 +23,10 @@ type TCMonad = ExceptT String (Reader Context)
 (&&^) a b = a >>= (\x -> if not x then return False else b)
 infixr 1 ||^, &&^
 
+assert :: String -> Bool -> TCMonad ()
+assert err True = return ()
+assert err False = throwError err
+
 lookupCtx :: (Refinement -> Bool) -> String -> TCMonad Refinement
 lookupCtx pred msg = do
   lookup <- reader $ find pred
@@ -56,25 +60,23 @@ typecheckDecl d = case d of
         return $ ValRef b ty
     ValDecl b (Just ty) e -> do
         exprTy <- typecheckExpr e
-        --traceM $ printf "check annot %s <: %s" (show exprTy) (show ty)
         isSubtype exprTy ty >>= assert (printf "val %s: %s is not a subtype of %s" (show b) (show exprTy) (show ty))
         return $ ValRef b ty
     DefDecl method args retTy prog -> do
         let argTypes = map (\(Arg _ t) -> t) args
         let argVals = map (\(Arg b t) -> ValRef b t) args
-        (local (argVals++) $ (checkAll typeWF argTypes)) >>= assert "argument types not wf"
+        (local (argVals++) $ (checkAll typeWF argTypes)) >>= assert (printf "%s: argument types not wf" (show method))
         progTy <- local (argVals++) $ typecheckProgram prog
-        (local (argVals++) $ isSubtype progTy retTy) >>= assert "def expression has invalid subtype"
+        (local (argVals++) $ isSubtype progTy retTy) >>= assert (printf "def %s: invalid subtype: expected %s, got %s)" (show method) (show retTy) (show progTy))
         return $ DefRef method args retTy        
-    TypeDecl t z decls -> do
+    TypeDecl ta t z decls -> do
         let zt = ValRef z (makeNomType t)
-        let tt = TypeRef t z decls
-        (local ([tt,zt]++) $ checkAll refineWF decls) >>=
-          assert (printf "type %s not wf" (show t))
+        let tt = TypeRef ta t z decls
+        (local ([tt,zt]++) $ checkAll refineWF decls) >>= assert (printf "type %s not wf" (show t))
         return tt
     TypeEqDecl b ty -> do
-        typeWF ty >>= assert ("type " ++ (show ty) ++ " not wf")
-        return $ MemberRef b EQQ ty
+        typeWF ty >>= assert (printf "type %s not wf" (show ty))
+        return $ MemberRef Material b EQQ ty -- material?
     SubtypeDecl t1 t2 -> do
         refineWF (SubtypeRef t1 t2) >>= assert (printf "invalid subtype decl: %s %s" (show t1) (show t2))
         return $ SubtypeRef t1 t2
@@ -88,37 +90,36 @@ typecheckExpr e = case e of
                          ValDecl _ _ _ -> typecheckDecl d
                          _             -> local (ValRef z ty:) $ typecheckDecl d
         rs' <- mapM tcDecl rs
-        let rs_old' = map (substRefines z_old (Var z)) rs_old
+        let rs_old' = map (substRefines (Var z) z_old) rs_old
         --assert that new expr is structural subtype of ty
         local (ValRef z (merge ty (ref rs')):) $ checkPerm isSubtypeRef rs' rs_old' 
           >>= assert ("invalid new expression:" ++ (show ty))
         return ty
     Call p es -> do
-        (methodName,ctx) <- case p of 
+        (methodName,ctxOp) <- case p of 
           Var (Binding b _) -> return (b,id) --top-level function, use regular context
           Field path name -> do
             pty <- typecheckPath path
             (z,decls) <- unfold pty
-            return (name, const $ map (substRefines z path) decls)
+            return (name, const $ map (substRefines path z) decls)
         let pred (DefRef (Binding b _) _ _) = b == methodName
             pred _ = False
-        DefRef m args retTy <- local ctx $ lookupCtx pred ("failed to find method name " ++ methodName)
+        DefRef m args retTy <- local ctxOp $ lookupCtx pred ("failed to find method name " ++ methodName)
 
         --subfunc creates the correct type by subbing in the arguments
-        let subfunc ty = foldr (\(Arg x _,exp) -> substType x exp) ty (zip args es)
+        let subfunc ty = foldr (\(Arg x _,exp) -> substType exp x) ty (zip args es)
         let argsTypeSubbed = map subfunc (map (\(Arg _ ty) -> ty) args) --correct arg types
-        esTys <- mapM typecheckPath es --calling types
+        esTys <- mapM typecheckPath es --these are the calling types
         --subtype check
         (return (length esTys == length argsTypeSubbed))
-          >>= assert "wrong # of arguments"
+          >>= assert (printf "calling %s: wrong # of arguments" methodName)
         checkPairwise isSubtype esTys argsTypeSubbed 
-          >>= assert "Subtype check failed when calling method"
-        let subTy = subfunc retTy --correct return type
-        return subTy
+          >>= assert (printf "calling %s: subtype check failed when calling method" methodName)
+        return $ subfunc retTy --subbed return type
     IntLit _ -> do
-        TypeRef b _ _ <- lookupCtx pred "failed to find type Int"
+        TypeRef _ b _ _ <- lookupCtx pred "failed to find type Int"
         return $ makeNomType b
-        where pred (TypeRef (Binding b' _) _ _) = b' == "Int"
+        where pred (TypeRef _ (Binding b' _) _ _) = b' == "Int"
               pred _ = False
     UnitLit -> return theUnit
 
@@ -133,43 +134,38 @@ typecheckPath p = case p of
         tau <- typecheckPath p
         (z,decls) <- unfold tau
         ValRef _ tauv <- local (const decls) $ lookupCtx pred ("failed to find field " ++ n)
-        return $ substType z p tauv
+        return $ substType p z tauv
         where pred (ValRef (Binding b _) _) = b == n
               pred _ = False
 
 --unfold
-
 unfoldBaseType :: BaseType -> TCMonad (Binding,[Refinement])
 unfoldBaseType base = case base of
     UnitType -> return (Binding "z" (-1),[]) --unit binding
     PathType p -> case p of
       Var x -> do
-        TypeRef _ z rs <- lookupCtx pred ("unfold: failed to find type " ++ show x)
+        TypeRef _ _ z rs <- lookupCtx pred ("unfold: failed to find type " ++ show x)
         return (z,rs)
-        where pred (TypeRef b _ _) = b == x
+        where pred (TypeRef _ b _ _) = b == x
               pred _ = False
       Field pa na -> do
         tau <- typecheckPath pa
         (z,decls) <- unfold tau
         d <- local (const decls) $ lookupCtx pred ("unfold: failed to find field " ++ na)
         case d of
-          TypeRef _ z' rs' -> return (z',map (substRefines z pa) rs')
-          MemberRef _ bound ty -> case bound of
+          TypeRef _ _ z' rs' -> return (z',map (substRefines pa z) rs')
+          MemberRef _ _ bound ty -> case bound of
             GEQ -> return (Binding "z" (-1),[]) --unit binding
-            _ -> unfold $ substType z pa ty
-          where pred (TypeRef (Binding b _)  _ _) = b == na
-                pred (MemberRef (Binding b _) _ _) = b == na 
+            _ -> unfold $ substType pa z ty
+          where pred (TypeRef _ (Binding b _)  _ _) = b == na
+                pred (MemberRef _ (Binding b _) _ _) = b == na 
                 pred _ = False
-    _  -> throwError "unfold: shouldn't happen?"
+    _  -> throwError (printf "couldn't unfold %s: shouldn't happen?" (show base))
 
 unfold :: Type -> TCMonad (Binding,[Refinement])
 unfold (Type base rs) = do
   (z,baseRs) <- unfoldBaseType base  
-  return (z,mergeRefs rs baseRs) --maybe merge/overwrite the old decls?
-
-assert :: String -> Bool -> TCMonad ()
-assert err True = return ()
-assert err False = throwError err
+  return (z,mergeRefs rs baseRs)
 
 m_and :: Monad m => [Bool] -> m Bool
 m_and x = return $ and x
@@ -216,8 +212,8 @@ equalRef r1 r2 =
   case (r1,r2) of
     (ValRef b1 t1,ValRef b2 t2) -> do
       (return $ b1 == b2) &&^ equalType t1 t2
-    (TypeRef b@(Binding t1 _) z1 r1,TypeRef (Binding t2 _) z2 r2) -> do
-      let r2' = map (substRefines z2 (Var z1)) r2  
+    (TypeRef _ b@(Binding t1 _) z1 r1,TypeRef _ (Binding t2 _) z2 r2) -> do
+      let r2' = map (substRefines (Var z1) z2) r2  
       eqRefs <- local (ValRef z1 (makeNomType b):) $ checkPermDual equalRef r1 r2'
       return $ t1 == t2 && eqRefs
     (DefRef (Binding b1 _) args1 t1,DefRef (Binding b2 _) args2 t2) -> do
@@ -227,7 +223,7 @@ equalRef r1 r2 =
       return $ b1 == b2 && length args1 == length args2 && eqTypes
     (SubtypeRef s1 t1,SubtypeRef s2 t2) -> do
       equalType s1 s2 &&^ equalType t1 t2
-    (MemberRef (Binding b1 _) bound1 t1,MemberRef (Binding b2 _) bound2 t2) -> do
+    (MemberRef _ (Binding b1 _) bound1 t1,MemberRef _ (Binding b2 _) bound2 t2) -> do
       eqTy <- equalType t1 t2
       return $ b1 == b2 && bound1 == bound2 && eqTy
     _ -> return False    
@@ -240,28 +236,28 @@ isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
   if eqBase then checkPerm isSubtypeRef r1 r2 
             else recLHS ||^ recRHS ||^ normalAns
   where 
-    pred name (MemberRef (Binding b _) _ _) = name == b
+    pred name (MemberRef _ (Binding b _) _ _) = name == b
     pred _ _ = False
     recLHS = case b1 of
       PathType (Field path name) -> do
         pathTy <- typecheckPath path
         (z,prs) <- unfold pathTy
-        MemberRef _ bound ty <- local (const prs) $ lookupCtx (pred name) ("failed to find type member " ++ name)
+        MemberRef _ _ bound ty <- local (const prs) $ lookupCtx (pred name) ("failed to find type member " ++ name)
         case bound of
           GEQ -> return False
           _   -> do
-            let subbedType = substType z path $ merge ty r1
+            let subbedType = substType path z $ merge ty r1
             isSubtype subbedType t2
       _ -> return False
     recRHS = case b2 of
       PathType (Field path name) -> do
         pathTy@(Type base rs) <- typecheckPath path
         (z,prs) <- unfold pathTy
-        MemberRef _ bound ty <- local (const prs) $ lookupCtx (pred name) ("failed to find type member " ++ name)
+        MemberRef _ _ bound ty <- local (const prs) $ lookupCtx (pred name) ("failed to find type member " ++ name)
         case bound of
           LEQ -> return False
           _   -> do
-            let subbedType = substType z path $ merge ty r2
+            let subbedType = substType path z $ merge ty r2
             isSubtype t1 subbedType
       _ -> return False
     normalAns = case b1 of
@@ -279,7 +275,7 @@ isSubtypeBase (Type b1 r1) b2 = do
       PathType (Field path name) -> do
         pathTy <- typecheckPath path
         (z,prs) <- unfold pathTy
-        return $ const $ map (substRefines z path) prs
+        return $ const $ map (substRefines path z) prs
       _ -> return id
     local ctxOp $ searchCtx pred
   where pred (SubtypeRef (Type baseL rsL) (Type baseR _)) =
@@ -300,11 +296,11 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
     argsSubtype <- local ((vs1 ++ vs2) ++) $ checkPerm isSubtype types2 types1 --contra
     retSubtype <- local ((vs1 ++ vs2) ++) $ isSubtype t1 t2 --cov
     return $ (b1 == b2) && argsSubtype && retSubtype
-  (TypeRef b@(Binding t1 _) z1 rs1,TypeRef (Binding t2 _) z2 rs2) -> do
-    let rs2' = map (substRefines z2 (Var z1)) rs2
+  (TypeRef _ b@(Binding t1 _) z1 rs1,TypeRef _ (Binding t2 _) z2 rs2) -> do
+    let rs2' = map (substRefines (Var z1) z2) rs2
     isEq <- local (ValRef z1 (makeNomType b):) $ checkPerm equalRef rs1 rs2'
     return $ (t1 == t2) && isEq
-  (MemberRef (Binding b1 _) bound1 t1,MemberRef (Binding b2 _) bound2 t2) -> do
+  (MemberRef _ (Binding b1 _) bound1 t1,MemberRef _ (Binding b2 _) bound2 t2) -> do
     if b1 == b2 then
       case (bound1,bound2) of
         (EQQ,EQQ) -> checkCov &&^ checkContra --checkEq?
@@ -336,10 +332,10 @@ refineWF r = case r of
     argsWF <- local (vs++) $ checkAll refineWF vs
     retTyWF <- local (vs++) $ typeWF retTy
     return $ argsWF && retTyWF
-  tr@(TypeRef t z rs) -> do
+  tr@(TypeRef _ t z rs) -> do
     local ([ValRef z (makeNomType t),tr]++) $ checkAll refineWF rs
-  MemberRef _ _ t -> typeWF t
+  MemberRef _ _ _ t -> typeWF t
   s@(SubtypeRef t1 t2) -> do
     (z,rs)   <- unfold t1
     (z',rs') <- unfold t2
-    local ([ValRef z t1,s]++) $ checkPerm isSubtypeRef rs (map (substRefines z' (Var z)) rs')
+    local ([ValRef z t1,s]++) $ checkPerm isSubtypeRef rs (map (substRefines (Var z) z') rs')

@@ -9,9 +9,8 @@ import Text.ParserCombinators.Parsec
 import Parser
 import Binding
 import PrettyPrint
+import TypeGraph
 import Typecheck
-
-printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)
 
 data Args = Generate { input :: FilePath
                      , debug_flag :: Int}

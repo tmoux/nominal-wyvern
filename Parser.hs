@@ -22,6 +22,7 @@ languageDef =
                                       , "extends"
                                       , "Unit"
                                       , "Bot"
+                                      , "@shape"
                                       ]
             , Token.reservedOpNames = [ "="
                                       , "<="
@@ -83,13 +84,17 @@ defdecl = DefDecl <$  reserved "def"
                   <*> ty
                   <*> braces parseProgram
 
-typedecl = TypeDecl <$  reserved "type"
+typeAnnot = f <$> optionMaybe (reserved "@shape")
+  where f (Just _) = Shape
+        f Nothing  = Material
+
+typedecl = TypeDecl <$> typeAnnot
+                    <*  reserved "type"
                     <*> identifier
                     <*  resOp "{" 
                     <*> identifier <* resOp "=>"
                     <*> many refine
                     <*  resOp "}"
-
 
 typeEqDecl = TypeEqDecl <$  reserved "type"
                 <*> identifier
@@ -118,14 +123,16 @@ defref = DefRef <$  reserved "def"
                 <*  colon
                 <*> ty
 
-typeref = TypeRef <$  reserved "type"
+typeref = TypeRef <$> typeAnnot 
+                  <*  reserved "type"
                   <*> identifier
                   <*  resOp "{"
                   <*> identifier <* resOp "=>"
                   <*> many refine
                   <*  resOp "}"
 
-memberref = MemberRef <$  reserved "type"
+memberref = MemberRef <$> typeAnnot
+                      <*  reserved "type"
                       <*> identifier
                       <*> bound
                       <*> ty

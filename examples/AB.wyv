@@ -16,4 +16,5 @@ Unit
 B {type S = Int} <: A {type T >= B {type S = Int}}
 type T >= B {type S = Int} <: type T = A {type T >= B {type S = B {type S = z.S}}}
 B {type S = Int} <: A {type T >= B {type S = B {type S = z.S}}}
+...
 */

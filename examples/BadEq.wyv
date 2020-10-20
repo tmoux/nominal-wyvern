@@ -1,0 +1,20 @@
+type Eq {z =>
+  type E <= Unit
+}
+type List {z =>
+  type T <= Unit
+  type E = List {type T <= Eq {type E >= z.T}}
+}
+subtype List extends Eq
+type Tree {z =>
+  type T = Tree
+  type E = List {type T <= Eq {type E >= z.T}}
+}
+subtype Tree extends List
+
+//BAD
+val bad : Eq {type E >= Tree} = new Tree {this =>
+  type T = Tree
+  type E = List {type T <= Eq {type E >= this.T}}
+}
+0

@@ -2,6 +2,9 @@ module RawSyntax where
 
 type Name = String
 
+data TypeAnnot = Shape | Material
+  deriving (Show)
+
 data Program = Program [Declaration] Expr
     deriving (Show)
 
@@ -9,7 +12,7 @@ data Declaration =
     ValDecl Name Expr
   | ValAnnotDecl Name Type Expr
   | DefDecl Name [(Name,Type)] Type Program
-  | TypeDecl Name Name [Refinement]
+  | TypeDecl TypeAnnot Name Name [Refinement]
   | TypeEqDecl Name Type
   | SubtypeDecl Type Type
   deriving (Show)
@@ -26,8 +29,8 @@ data BaseType =
 data Refinement =
     ValRef Name Type
   | DefRef Name [(Name,Type)] Type
-  | TypeRef Name Name [Refinement]
-  | MemberRef Name Bound Type
+  | TypeRef TypeAnnot Name Name [Refinement]
+  | MemberRef TypeAnnot Name Bound Type
   | SubtypeRef Type Type
   deriving (Show)
 

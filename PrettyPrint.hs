@@ -19,6 +19,10 @@ instance Show Binding where
 instance Show Arg where
     show (Arg b ty) = (show b) ++ ":" ++ (show ty)
 
+instance Show TypeAnnot where
+    show Shape    = "@shape "
+    show Material = ""
+
 instance Show Program where
     show (Program [] expr) = show expr
     show (Program decls expr) =
@@ -32,8 +36,8 @@ instance Show Declaration where
       printf "val %s : %s = %s" (show b) (show ty) (show e)
     DefDecl b args ty prog ->
       printf "def %s(%s):%s {\n%s\n}" (show b) (showSep ", " args) (show ty) (indent $ show prog)
-    TypeDecl t z refines ->
-      printf "type %s {%s =>\n%s\n}" (show t) (show z) (indent $ showSep "\n" refines)
+    TypeDecl ta t z refines ->
+      printf "%stype %s {%s =>\n%s\n}" (show ta) (show t) (show z) (indent $ showSep "\n" refines)
     TypeEqDecl b t ->
       printf "type %s = %s" (show b) (show t)
     SubtypeDecl t1 t2 ->
@@ -45,10 +49,10 @@ instance Show Refinement where
       printf "val %s: %s" (show b) (show t)
     DefRef b args ty ->
       printf "def %s(%s):%s" (show b) (showSep ", " args) (show ty)
-    TypeRef t z refines ->
-      printf "type %s {%s =>\n%s\n}" (show t) (show z) (indent $ showSep "\n" refines)
-    MemberRef b bound ty ->
-      printf "type %s %s %s" (show b) (show bound) (show ty)
+    TypeRef ta t z refines ->
+      printf "%stype %s {%s =>\n%s\n}" (show ta) (show t) (show z) (indent $ showSep "\n" refines)
+    MemberRef ta b bound ty ->
+      printf "%stype %s %s %s" (show ta) (show b) (show bound) (show ty)
     SubtypeRef t1 t2 ->
       printf "subtype %s extends %s" (show t1) (show t2)
 
