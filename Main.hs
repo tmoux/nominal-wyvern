@@ -45,6 +45,10 @@ main = do
                 Left err -> error (show err)
                 Right x -> x
     putStrLn $ "Bound AST:\n" ++ show bound_ast
+    let type_graph = case getGraph bound_ast of
+                Left err -> error (show err)
+                Right x -> x
+    --putStrLn $ "Type graph:\n" ++ type_graph
     let ty = case typecheck bound_ast of
                Left err -> error (show err)
                Right x -> x

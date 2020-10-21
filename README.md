@@ -11,5 +11,7 @@ An implementation of the Nominal Wyvern type system written in Haskell
 * ~~Add syntax for annotated value (probably augment ```ValRef``` with a ```Maybe Type``` parameter) (this is to test things like the AB test)~~ AB test works (loops forever)
 * ~~Find better way to handle bool operators/short circuiting in the monads~~
 * ~~Go over rules, clean up/give better names to stuff~~
-* Type graphs & ~~material/shape annotations~~
+* Implement graph generation rules
+* Check for valid shape usage (probably at the same time, throw errors as needed)
+* Look into the extra edges rules
 * Later: REPL for typing/subtyping queries
