@@ -104,7 +104,7 @@ typeEqDecl = TypeEqDecl <$  reserved "type"
 subtypedecl = SubtypeDecl <$  reserved "subtype"
                           <*> ty
                           <*  reserved "extends"
-                          <*> ty
+                          <*> basetype
 --refinements
 refine = try valref
      <|> try defref
@@ -140,7 +140,7 @@ memberref = MemberRef <$> typeAnnot
 subtyperef = SubtypeRef <$  reserved "subtype"
                         <*> ty
                         <*  reserved "extends"
-                        <*> ty
+                        <*> basetype
 
 bound :: Parser Bound
 bound = LEQ <$ resOp "<="

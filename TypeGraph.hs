@@ -123,7 +123,7 @@ buildGraphDecl d = case d of
         nt  <- absPath t >>= (\p -> return (PPath p))
         addPType nt ta
         genEdges bt' rt nt []
-  SubtypeDecl (Type n1 r1) (Type n2 _) -> do
+  SubtypeDecl (Type n1 r1) n2 -> do
     n1' <- getPType n1
     n2' <- getPType n2
     tell [Edge n2' [] n1']

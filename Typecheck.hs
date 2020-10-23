@@ -222,7 +222,7 @@ equalRef r1 r2 =
       eqTypes <- checkPairwise equalType types1 types2
       return $ b1 == b2 && length args1 == length args2 && eqTypes
     (SubtypeRef s1 t1,SubtypeRef s2 t2) -> do
-      equalType s1 s2 &&^ equalType t1 t2
+      equalType s1 s2 &&^ equalBaseType t1 t2
     (MemberRef _ (Binding b1 _) bound1 t1,MemberRef _ (Binding b2 _) bound2 t2) -> do
       eqTy <- equalType t1 t2
       return $ b1 == b2 && bound1 == bound2 && eqTy
@@ -278,7 +278,7 @@ isSubtypeBase (Type b1 r1) b2 = do
         return $ const $ map (substRefines path z) prs
       _ -> return id
     local ctxOp $ searchCtx pred
-  where pred (SubtypeRef (Type baseL rsL) (Type baseR _)) =
+  where pred (SubtypeRef (Type baseL rsL) baseR) =
              equalBaseType b1 baseL 
          &&^ checkPerm isSubtypeRef r1 rsL 
          &&^ isSubtypeBase (Type baseR r1) b2
@@ -314,7 +314,7 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
               checkCov     = isSubtype t1 t2
               checkContra  = isSubtype t2 t1
   (SubtypeRef s1 t1,SubtypeRef s2 t2) -> do
-    equalType s1 s2 &&^ equalType t1 t2
+    equalType s1 s2 &&^ equalBaseType t1 t2
   _ -> return False
 --WF checks
 typeWF :: Type -> TCMonad Bool
@@ -337,5 +337,5 @@ refineWF r = case r of
   MemberRef _ _ _ t -> typeWF t
   s@(SubtypeRef t1 t2) -> do
     (z,rs)   <- unfold t1
-    (z',rs') <- unfold t2
+    (z',rs') <- unfoldBaseType t2
     local ([ValRef z t1,s]++) $ checkPerm isSubtypeRef rs (map (substRefines (Var z) z') rs')

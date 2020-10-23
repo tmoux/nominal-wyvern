@@ -14,7 +14,7 @@ data Declaration =
   | DefDecl Binding [Arg] Type Program
   | TypeDecl TypeAnnot Binding Binding [Refinement]
   | TypeEqDecl Binding Type
-  | SubtypeDecl Type Type --maybe change this to require supertype to be a BaseType
+  | SubtypeDecl Type BaseType
 
 data Type = Type BaseType [Refinement]
 
@@ -31,7 +31,7 @@ data Refinement =
   | DefRef Binding [Arg] Type
   | TypeRef TypeAnnot Binding Binding [Refinement]
   | MemberRef TypeAnnot Binding Bound Type
-  | SubtypeRef Type Type
+  | SubtypeRef Type BaseType
 
 data Bound = LEQ | EQQ | GEQ
   deriving (Eq)

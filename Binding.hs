@@ -107,7 +107,7 @@ bindDecl d = case d of
     return $ TypeEqDecl b' ty'
   Raw.SubtypeDecl t1 t2 -> do
     t1' <- bindType t1
-    t2' <- bindType t2
+    t2' <- bindBaseType t2
     return $ SubtypeDecl t1' t2'
 
 bindRefine :: Raw.Refinement -> BindMonad Refinement
@@ -147,7 +147,7 @@ bindRefine r = case r of
     return $ MemberRef ta' b' bound' ty'
   Raw.SubtypeRef t1 t2 -> do
     t1' <- bindType t1
-    t2' <- bindType t2
+    t2' <- bindBaseType t2
     return $ SubtypeRef t1' t2'
     
 bindExpr :: Raw.Expr -> BindMonad Expr
@@ -176,19 +176,22 @@ bindPath p = case p of
     path' <- bindPath path
     return $ Field path' name
 
+bindBaseType :: Raw.BaseType -> BindMonad BaseType
+bindBaseType b =  
+  case b of
+    Raw.UnitType   -> return UnitType
+    Raw.BotType    -> return BotType
+    Raw.PathType p ->
+      case p of
+        Raw.Var v -> do
+          v' <- fetchType v
+          return $ PathType $ Var v'
+        Raw.Field _ _ -> do
+          p' <- bindPath p
+          return $ PathType p'
+
 bindType :: Raw.Type -> BindMonad Type
 bindType (Raw.Type b rs) = do
-  b' <- 
-    case b of
-      Raw.UnitType   -> return UnitType
-      Raw.BotType    -> return BotType
-      Raw.PathType p ->
-        case p of
-          Raw.Var v -> do
-            v' <- fetchType v
-            return $ PathType $ Var v'
-          Raw.Field _ _ -> do
-            p' <- bindPath p
-            return $ PathType p'
+  b' <- bindBaseType b
   rs' <- mapM bindRefine rs
   return $ Type b' rs'

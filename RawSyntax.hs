@@ -14,7 +14,7 @@ data Declaration =
   | DefDecl Name [(Name,Type)] Type Program
   | TypeDecl TypeAnnot Name Name [Refinement]
   | TypeEqDecl Name Type
-  | SubtypeDecl Type Type
+  | SubtypeDecl Type BaseType
   deriving (Show)
 
 data Type = Type BaseType [Refinement]
@@ -31,7 +31,7 @@ data Refinement =
   | DefRef Name [(Name,Type)] Type
   | TypeRef TypeAnnot Name Name [Refinement]
   | MemberRef TypeAnnot Name Bound Type
-  | SubtypeRef Type Type
+  | SubtypeRef Type BaseType
   deriving (Show)
 
 data Bound = LEQ | EQQ | GEQ
