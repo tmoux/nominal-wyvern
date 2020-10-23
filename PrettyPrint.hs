@@ -83,7 +83,6 @@ instance Show Type where
     printf "%s {%s}" (show base) (showSep ", " refines)
 
 instance Show BaseType where
-  show b = case b of
-    UnitType   -> "Unit"
-    BotType    -> "Bot"
-    PathType p -> show p
+  show UnitType     = "Unit"
+  show BotType      = "Bot"
+  show (PathType p) = show p

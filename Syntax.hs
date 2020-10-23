@@ -2,7 +2,7 @@ module Syntax where
 
 type Name = String
 data Binding = Binding Name Int
-  deriving (Eq)
+  deriving (Eq, Ord)
 data Arg = Arg Binding Type
 
 data TypeAnnot = Shape | Material
@@ -14,7 +14,7 @@ data Declaration =
   | DefDecl Binding [Arg] Type Program
   | TypeDecl TypeAnnot Binding Binding [Refinement]
   | TypeEqDecl Binding Type
-  | SubtypeDecl Type Type
+  | SubtypeDecl Type Type --maybe change this to require supertype to be a BaseType
 
 data Type = Type BaseType [Refinement]
 
@@ -39,7 +39,7 @@ data Bound = LEQ | EQQ | GEQ
 data Path = 
     Var Binding
   | Field Path Name
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 data Expr = 
     PathExpr Path

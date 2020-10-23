@@ -12,8 +12,8 @@ languageDef =
     emptyDef { Token.commentStart   = "/*"
              , Token.commentEnd     = "*/"
              , Token.commentLine    = "//"
-             , Token.identStart     = letter
-             , Token.identLetter    = alphaNum
+             , Token.identStart     = letter <|> char '_'
+             , Token.identLetter    = alphaNum <|> char '_'
              , Token.reservedNames  = [ "val"
                                       , "def"
                                       , "type"

@@ -26,6 +26,8 @@ debug :: String -> String -> Int -> IO ()
 debug header str 0 = return ()
 debug header str x = putStrLn $ header ++ str
 
+printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)
+
 main = do
     {-
     args <- cmdArgs generate
@@ -48,8 +50,10 @@ main = do
     let type_graph = case getGraph bound_ast of
                 Left err -> error (show err)
                 Right x -> x
-    --putStrLn $ "Type graph:\n" ++ type_graph
+    putStrLn $ "Type graph:\n" ++ printList type_graph
+    {-
     let ty = case typecheck bound_ast of
                Left err -> error (show err)
                Right x -> x
     putStrLn $ "Type: " ++ (show ty)
+    -}
