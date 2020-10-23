@@ -55,10 +55,10 @@ typecheckProgram (Program decls expr) = do
 
 typecheckDecl :: Declaration -> TCMonad Refinement
 typecheckDecl d = case d of 
-    ValDecl b Nothing e -> do
-        ty <- typecheckExpr e
-        return $ ValRef b ty
-    ValDecl b (Just ty) e -> do
+    --ValDecl b Nothing e -> do
+    --    ty <- typecheckExpr e
+    --    return $ ValRef b ty
+    ValDecl b ty e -> do
         exprTy <- typecheckExpr e
         isSubtype exprTy ty >>= assert (printf "val %s: %s is not a subtype of %s" (show b) (show exprTy) (show ty))
         return $ ValRef b ty
@@ -87,7 +87,7 @@ typecheckExpr e = case e of
     New ty z rs -> do
         (z_old,rs_old) <- unfold ty
         let tcDecl d = case d of
-                         ValDecl _ _ _ -> typecheckDecl d
+                         --ValDecl _ _ _ -> typecheckDecl d
                          _             -> local (ValRef z ty:) $ typecheckDecl d
         rs' <- mapM tcDecl rs
         let rs_old' = map (substRefines (Var z) z_old) rs_old

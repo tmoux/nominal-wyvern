@@ -10,7 +10,8 @@ data TypeAnnot = Shape | Material
 data Program = Program [Declaration] Expr
 
 data Declaration = 
-    ValDecl Binding (Maybe Type) Expr
+    --ValDecl Binding (Maybe Type) Expr
+    ValDecl Binding Type Expr
   | DefDecl Binding [Arg] Type Program
   | TypeDecl TypeAnnot Binding Binding [Refinement]
   | TypeEqDecl Binding Type

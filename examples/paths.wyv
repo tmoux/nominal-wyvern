@@ -10,16 +10,16 @@ type C {z =>
     type R <= Unit
     val c:B
 }
-val aa = new A {this =>
+val aa : A = new A {this =>
     type T = Unit
-    val a = Unit
+    val a : Unit = Unit
 }
-val bb = new B {this =>
+val bb : B = new B {this =>
     type S = Unit
-    val b = aa
+    val b : A = aa
 }
-val cc = new C {this =>
+val cc : C = new C {this =>
     type R = Unit
-    val c = bb
+    val c : B = bb
 }
 cc.c.b.a

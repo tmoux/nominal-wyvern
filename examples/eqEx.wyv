@@ -13,7 +13,7 @@ type Set {z =>
   type elemT <= Equatable {type T >= z.elemT}
 }
 
-val fruit_Set = new Set {type elemT = Fruit} {z =>
+val fruit_Set : Set {type elemT = Fruit} = new Set {type elemT = Fruit} {z =>
   type elemT = Fruit
 }
 fruit_Set

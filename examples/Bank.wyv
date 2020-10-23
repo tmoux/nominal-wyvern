@@ -21,7 +21,7 @@ type Utils {z =>
   def giveChildren(card:SecuredCard):Unit
 }
 
-val pnc = new Bank {type Card = CreditCard} {b =>
+val pnc : Bank {type Card = CreditCard} = new Bank {type Card = CreditCard} {b =>
   type Card = CreditCard
   def applyForCard(name:Int):b.Card {
     new CreditCard {z =>}
@@ -31,7 +31,7 @@ val pnc = new Bank {type Card = CreditCard} {b =>
   }
 }
 
-val veryCautiousBank = new RegionalBank {type Card = SecuredCard} {b =>
+val veryCautiousBank : RegionalBank {type Card = SecuredCard} = new RegionalBank {type Card = SecuredCard} {b =>
   type Card = SecuredCard
   def applyForCard(name:Int):b.Card {
     new SecuredCard {z =>}
@@ -41,7 +41,7 @@ val veryCautiousBank = new RegionalBank {type Card = SecuredCard} {b =>
   }
 }
 
-val one = 1
-val myCard = veryCautiousBank.applyForCard(one)
-val legal = veryCautiousBank.payOff(myCard)
+val one : Int = 1
+val myCard : veryCautiousBank.Card = veryCautiousBank.applyForCard(one)
+val legal : Unit = veryCautiousBank.payOff(myCard)
 one

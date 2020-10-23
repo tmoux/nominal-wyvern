@@ -9,8 +9,8 @@ data Program = Program [Declaration] Expr
     deriving (Show)
 
 data Declaration = 
-    ValDecl Name Expr
-  | ValAnnotDecl Name Type Expr
+    --ValDecl Name Expr | 
+    ValAnnotDecl Name Type Expr
   | DefDecl Name [(Name,Type)] Type Program
   | TypeDecl TypeAnnot Name Name [Refinement]
   | TypeEqDecl Name Type

@@ -71,15 +71,15 @@ bindProgram (Raw.Program decls expr) = f decls expr
 
 bindDecl :: Raw.Declaration -> BindMonad Declaration
 bindDecl d = case d of
-  Raw.ValDecl b e -> do  
-    b' <- newBinding b   
-    e' <- bindExpr e
-    return $ ValDecl b' Nothing e'
+  --Raw.ValDecl b e -> do  
+  --  b' <- newBinding b   
+  --  e' <- bindExpr e
+  --  return $ ValDecl b' Nothing e'
   Raw.ValAnnotDecl b ty e -> do
     b'  <- newBinding b
     ty' <- bindType ty
     e'  <- bindExpr e
-    return $ ValDecl b' (Just ty') e'
+    return $ ValDecl b' ty' e'
   Raw.DefDecl b args ty prog -> do
     b' <- newBinding b
     let bindArgs [] prog ty = do

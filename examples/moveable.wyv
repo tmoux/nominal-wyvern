@@ -21,11 +21,11 @@ type FMoveable {x =>
 type Utils {z =>
   def translate(arg:FMoveable):arg.T
 }
-val utils = new Utils {this =>
+val utils : Utils = new Utils {this =>
   def translate(arg:FMoveable):arg.T {
-    val p = new IntPair {z =>
-      val l = 1
-      val r = 1
+    val p : IntPair = new IntPair {z =>
+      val l : Int = 1
+      val r : Int = 1
     }
     arg.obj.move(p)
   }
@@ -33,16 +33,16 @@ val utils = new Utils {this =>
 type PointCons {pc =>
   def create(pos:IntPair):Point
 }
-val pointCons = new PointCons {pc =>
+val pointCons : PointCons = new PointCons {pc =>
   def create(pos:IntPair):Point {
     new Point {p =>
       type T = Point
-      val x = pos.l
-      val y = pos.r
+      val x : Int = pos.l
+      val y : Int = pos.r
       def move(amt:IntPair):Point {
-        val newp = new IntPair {z =>
-          val l = p.x + amt.l
-          val r = p.y + amt.r
+        val newp : IntPair = new IntPair {z =>
+          val l : Int = p.x + amt.l
+          val r : Int = p.y + amt.r
         }
         pc.create(newp)
       }
@@ -50,13 +50,13 @@ val pointCons = new PointCons {pc =>
   }
 }
 
-val zz = new IntPair {z =>
-  val l = 0
-  val r = 0
+val zz : IntPair = new IntPair {z =>
+  val l : Int = 0
+  val r : Int = 0
 }
-val origin = pointCons.create(zz)
-val fm = new FMoveable {xx =>
+val origin : Point = pointCons.create(zz)
+val fm : FMoveable = new FMoveable {xx =>
   type T = Point
-  val obj = origin
+  val obj : Point = origin
 }
 utils.translate(fm)

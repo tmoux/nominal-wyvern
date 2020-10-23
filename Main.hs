@@ -26,6 +26,7 @@ debug :: String -> String -> Int -> IO ()
 debug header str 0 = return ()
 debug header str x = putStrLn $ header ++ str
 
+printList [] = ""
 printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)
 
 main = do
@@ -51,9 +52,7 @@ main = do
                 Left err -> error (show err)
                 Right x -> x
     putStrLn $ "Type graph:\n" ++ printList type_graph
-    {-
     let ty = case typecheck bound_ast of
                Left err -> error (show err)
                Right x -> x
     putStrLn $ "Type: " ++ (show ty)
-    -}

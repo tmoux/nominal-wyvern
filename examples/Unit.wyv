@@ -1,5 +1,5 @@
-val a = 0
-val b = a + a
-val c = a + b
+val a : Int = 0
+val b : Int = a + a
+val c : Int = a + b
 //This is a test
 Unit
