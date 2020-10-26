@@ -3,6 +3,9 @@ module TypeUtil where
 import Data.List (find)
 import Syntax
 
+theUnit = Type UnitType []
+makeNomType s = Type (PathType $ Var s) []
+
 matchRef :: Refinement -> Refinement -> Bool
 matchRef a b = case (a,b) of
   (ValRef (Binding b1 _) _,ValRef (Binding b2 _) _) ->

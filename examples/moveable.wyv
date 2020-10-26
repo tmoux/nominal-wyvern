@@ -2,7 +2,7 @@ type IntPair {z =>
   val l:Int
   val r:Int
 }
-type Moveable {m =>
+@shape type Moveable {m =>
   type T <= Unit
   def move(amt:IntPair):m.T
 }

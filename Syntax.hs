@@ -24,9 +24,6 @@ data BaseType =
   | BotType
   | PathType Path
 
-theUnit = Type UnitType []
-makeNomType s = Type (PathType $ Var s) []
-
 data Refinement =
     ValRef Binding Type
   | DefRef Binding [Arg] Type
