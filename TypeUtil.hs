@@ -36,6 +36,35 @@ ref []                       = []
 ref (x@(MemberRef _ _ _ _):xs) = x:ref xs
 ref (_:xs)                   = ref xs
 
+--implementing these since I can't get Control.Monad.Extra to work...
+--they short-circuit as expected
+(||^) :: Monad m => m Bool -> m Bool -> m Bool
+(||^) a b = a >>= (\x -> if x then return True else b)
+(&&^) :: Monad m => m Bool -> m Bool -> m Bool
+(&&^) a b = a >>= (\x -> if not x then return False else b)
+infixr 1 ||^, &&^
+m_and :: Monad m => [Bool] -> m Bool
+m_and x = return $ and x
+m_or  :: Monad m => [Bool] -> m Bool
+m_or  x = return $ or x
+
+--monadic bool helper functions
+
+--check that all elements satisfy predicate
+checkAll :: Monad m => (a -> m Bool) -> [a] -> m Bool
+checkAll f as = (mapM f as) >>= m_and
+--check that f is true for all zipped pairs
+checkPairwise :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
+checkPairwise f as bs = (mapM (uncurry f) (zip as bs)) >>= m_and
+
+--check that for all b in bs, there exists an a such that (f a b) is true
+checkPerm :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
+checkPerm f as bs = (mapM search bs) >>= m_and 
+  where search b = (mapM (flip f b) as) >>= m_or
+
+checkPermDual :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
+checkPermDual f as bs = checkPerm f as bs &&^ checkPerm f bs as
+
 --substitution
 --substitute PATH for BINDING (p/x) in [path/type/refinement]
 subst :: Path -> Binding -> Path -> Path

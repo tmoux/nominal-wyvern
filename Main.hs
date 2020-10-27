@@ -6,6 +6,8 @@ module Main where
 import System.Environment
 import System.Console.CmdArgs
 import Text.ParserCombinators.Parsec
+import Control.Monad.Writer
+import Control.Monad.Except
 import Parser
 import Binding
 import PrettyPrint
@@ -52,7 +54,10 @@ main = do
                 Left err -> error (show err)
                 Right x -> x
     putStrLn $ "Type graph:\n" ++ printList type_graph
+    case (runCycleCheck type_graph) of
+                Left err -> error (show err)
+                Right _ -> return ()
     let ty = case typecheck bound_ast of
-               Left err -> error (show err)
-               Right x -> x
+                Left err -> error (show err)
+                Right x -> x
     putStrLn $ "Type: " ++ (show ty)

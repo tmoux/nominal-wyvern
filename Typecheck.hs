@@ -15,14 +15,6 @@ data Error = OtherErr String
 type Context = [Refinement]
 type TCMonad = ExceptT String (Reader Context)
 
---implementing these since I can't get Control.Monad.Extra to work...
---they short-circuit as expected
-(||^) :: Monad m => m Bool -> m Bool -> m Bool
-(||^) a b = a >>= (\x -> if x then return True else b)
-(&&^) :: Monad m => m Bool -> m Bool -> m Bool
-(&&^) a b = a >>= (\x -> if not x then return False else b)
-infixr 1 ||^, &&^
-
 assert :: String -> Bool -> TCMonad ()
 assert err True = return ()
 assert err False = throwError err
@@ -166,25 +158,6 @@ unfold :: Type -> TCMonad (Binding,[Refinement])
 unfold (Type base rs) = do
   (z,baseRs) <- unfoldBaseType base  
   return (z,mergeRefs rs baseRs)
-
-m_and :: Monad m => [Bool] -> m Bool
-m_and x = return $ and x
-m_or  :: Monad m => [Bool] -> m Bool
-m_or  x = return $ or x
---check that all elements satisfy predicate
-checkAll :: (a -> TCMonad Bool) -> [a] -> TCMonad Bool
-checkAll f as = (mapM f as) >>= m_and
---check that f is true for all zipped pairs
-checkPairwise :: (a -> a -> TCMonad Bool) -> [a] -> [a] -> TCMonad Bool
-checkPairwise f as bs = (mapM (uncurry f) (zip as bs)) >>= m_and
-
---check that for all b in bs, there exists an a s.t. (f a b) is true
-checkPerm :: (a -> a -> TCMonad Bool) -> [a] -> [a] -> TCMonad Bool
-checkPerm f as bs = (mapM search bs) >>= m_and 
-  where search b = (mapM (flip f b) as) >>= m_or
-
-checkPermDual :: (a -> a -> TCMonad Bool) -> [a] -> [a] -> TCMonad Bool
-checkPermDual f as bs = checkPerm f as bs &&^ checkPerm f bs as
 
 --type equality
 equalBaseType :: BaseType -> BaseType -> TCMonad Bool

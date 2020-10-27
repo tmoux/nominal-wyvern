@@ -5,6 +5,7 @@ import Control.Monad.Reader
 import Control.Monad.Writer
 import Control.Monad.State
 import qualified Data.Map.Strict as Map
+import Data.List (union)
 import Text.Printf
 import Syntax
 import PrettyPrint
@@ -166,3 +167,22 @@ genEdges b (MemberRef _ _ _ (Type bt rt):rest) br ba = do
   genEdges bt' rt br ((b,bTA):ba)
   genEdges b rest br ba
 genEdges _ _ _ _ = throwError "should never happen"
+
+--naive cycle checking
+runCycleCheck es = runExcept (checkCycles es)
+
+checkCycles :: [Edge] -> Except String ()
+checkCycles es = mapM_ (dfs es' []) vertices
+  where vertices = foldr (\(Edge from _ to) vs -> [from,to] `union` vs) [] es
+        es' = filter noshape es
+        noshape (Edge _ ls _) = and (map (isMat.snd) ls)
+        isMat Material = True
+        isMat Shape    = False
+
+dfs :: [Edge] -> [PType] -> PType -> Except String ()
+dfs es stack v = 
+  if v `elem` stack then
+    throwError $ printf "Cycle found: %s" (show stack)
+    else do
+      let es' = filter (\(Edge from _ _) -> from == v) es
+      mapM_ (\(Edge _ _ to) -> dfs es (v:stack) to) es'
