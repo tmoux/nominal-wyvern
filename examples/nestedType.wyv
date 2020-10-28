@@ -1,0 +1,15 @@
+type ModuleA {z =>
+  type A {z =>
+    val v : Unit
+    type T <= Unit
+  }
+
+  type B {z =>
+    val v : Unit
+    val u : Unit
+    type T <= Unit
+  }
+  subtype B extends A
+}
+
+0

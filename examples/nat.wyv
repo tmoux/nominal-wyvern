@@ -1,0 +1,57 @@
+type Nat {z =>
+  def pred(u:Unit):Nat
+  def add(p:Nat):Nat
+}
+
+type Zero {z =>
+  def pred(u:Unit):Nat
+  def add(p:Nat):Nat
+}
+subtype Zero extends Nat
+
+type Succ {z =>
+  def pred(u:Unit):Nat
+  def add(p:Nat):Nat
+  val n:Nat
+}
+subtype Succ extends Nat
+
+type AA {z =>
+  def zero(u:Unit):Zero
+  def succ(nn:Nat):Succ
+  def sub1(s:Succ):Nat
+}
+val aa : AA = new AA {z =>
+  def zero(u:Unit):Zero {
+    new Zero {y =>
+      def pred(u:Unit):Nat {
+        z.zero(u)
+      }
+      def add(p:Nat):Nat {
+        p
+      }
+    }
+  }
+  def succ(nn:Nat):Succ {
+    new Succ {y =>
+      def pred(u:Unit):Nat {
+        y.n
+      }
+      def add(p:Nat):Succ {
+        val almost : Nat = y.n.add(p)
+        z.succ(almost)
+      }
+      val n : Nat = nn
+    }
+  }
+  def sub1(s:Succ):Nat {
+    s.n
+  }
+}
+
+val unit : Unit = Unit
+
+val z : Nat = aa.zero(unit)
+val one : Nat = aa.succ(z)
+val two : Nat = aa.succ(one)
+two.add(one)

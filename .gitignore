@@ -4,3 +4,4 @@ Main
 *.swp
 *examples/*.swp
 *lib/*.swp
+dist/*
