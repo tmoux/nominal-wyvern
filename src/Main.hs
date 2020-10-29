@@ -5,24 +5,26 @@ module Main where
 
 import System.Environment
 import System.Console.CmdArgs
+import System.IO
 import Text.ParserCombinators.Parsec
-import Control.Monad.Writer
-import Control.Monad.Except
 import Parser
 import Binding
 import PrettyPrint
 import TypeGraph
 import Typecheck
+import Syntax
 
-data Args = Generate { input :: FilePath
-                     , debug_flag :: Int}
+data Args = Args { input :: FilePath
+                 , debug_flag :: Bool
+                 , repl_mode :: Bool} 
     deriving (Show, Data, Typeable)
 
-generate = Generate { 
-    input = "input.txt" &= typFile &= argPos 0
-  , debug_flag = 0 &= typ "0/1"
-                    } &= help ""
-                      &= program "wyvern typechecker"
+wyv_args = Args { 
+    input = def &= typFile &= argPos 0
+  , debug_flag = def &= name "d"
+  , repl_mode =  def &= name "r"
+                    }   &= help ""
+                        &= program "wyvern typechecker"
 
 debug :: String -> String -> Int -> IO ()
 debug header str 0 = return ()
@@ -32,32 +34,52 @@ printList [] = ""
 printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)
 
 main = do
-    {-
-    args <- cmdArgs generate
-    let infile = input args
-    let dbg_flag = debug_flag args
-    -}
-
-    [infile] <- getArgs
+    arg <- cmdArgs wyv_args
+    let infile = input arg
+    let is_debug = debug_flag arg
+    let is_repl = repl_mode arg
+      
     prelude <- readFile "lib/Prelude.wyv"
     input <- readFile infile
-    let parse_res = parse parseProgram "" (prelude ++ input)
-    let raw_ast = case parse_res of
-                Left err -> error (show err)
-                Right x -> x
-    --putStrLn $ "Raw AST:\n" ++ show raw_ast
-    let bound_ast = case bind raw_ast of
-                Left err -> error (show err)
-                Right x -> x
-    putStrLn $ "Bound AST:\n" ++ show bound_ast
-    let type_graph = case getGraph bound_ast of
-                Left err -> error (show err)
-                Right x -> x
-    putStrLn $ "Type graph:\n" ++ printList type_graph
-    case (runCycleCheck type_graph) of
-                Left err -> error (show err)
-                Right _ -> return ()
-    let ty = case typecheck bound_ast of
-                Left err -> error (show err)
-                Right x -> x
-    putStrLn $ "Type: " ++ (show ty)
+
+    if is_repl then do
+        repl [] [] 0
+      else do
+        let parse_res = parse parseProgram "" (prelude ++ input)
+        let raw_ast = case parse_res of
+                    Left err -> error (show err)
+                    Right x -> x
+        --putStrLn $ "Raw AST:\n" ++ show raw_ast
+        let bound_ast = case bind raw_ast of
+                    Left err -> error (show err)
+                    Right x -> x
+        putStrLn $ "Bound AST:\n" ++ show bound_ast
+        let type_graph = case getGraph bound_ast of
+                    Left err -> error (show err)
+                    Right x -> x
+        putStrLn $ "Type graph:\n" ++ printList type_graph
+        case (runCycleCheck type_graph) of
+                    Left err -> error (show err)
+                    Right _ -> return ()
+        let ty = case typecheck bound_ast of
+                    Left err -> error (show err)
+                    Right x -> x
+        putStrLn $ "Type: " ++ (show ty)
+
+
+--TODO
+repl :: [Declaration] -> [BindCtx] -> Int -> IO ()
+repl decls bindctx cnt = do
+  putStr "> "
+  hFlush stdout
+  inp <- fmap (parse parseRepl "") getLine   
+  case inp of
+    Left err -> do
+      putStrLn $ show err
+      repl decls bindctx cnt
+    Right x -> 
+      case x of
+        Quit -> putStrLn "Quitting."
+        Reset -> do
+          putStrLn "Resetting."
+          repl [] [] 0

@@ -9,7 +9,7 @@ type ModuleA {z =>
     val u : Unit
     type T <= Unit
   }
-  subtype B extends A
+  subtype z.B extends z.A
 }
 
 0

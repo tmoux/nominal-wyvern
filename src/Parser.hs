@@ -23,6 +23,9 @@ languageDef =
                                       , "Unit"
                                       , "Bot"
                                       , "@shape"
+                                      , "quit"
+                                      , "reset"
+                                      , "query"
                                       ]
             , Token.reservedOpNames = [ "="
                                       , "<="
@@ -35,6 +38,7 @@ languageDef =
                                       , "{"
                                       , "}"
                                       , "=>"
+                                      , "<:"
                                       ]
     }
               
@@ -42,7 +46,7 @@ lexer = Token.makeTokenParser languageDef
 
 identifier = Token.identifier lexer
 reserved   = Token.reserved lexer
-resOp = Token.reservedOp lexer
+resOp      = Token.reservedOp lexer
 parens     = Token.parens lexer
 braces     = Token.braces lexer
 integer    = Token.integer lexer
@@ -182,3 +186,19 @@ ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))
 basetype = UnitType <$ reserved "Unit"
        <|> BotType  <$ reserved "Bot"  
        <|> PathType <$> path
+
+
+--repl parser
+data ReplLine = 
+    Quit
+  | Reset
+  | ReplDecl Declaration
+  | ReplExpr Expr
+  | Query Type Type
+  deriving (Show)
+
+parseRepl = Quit <$ reserved "quit"
+        <|> Reset <$ reserved "reset"
+        <|> ReplDecl <$> decl
+        <|> ReplExpr <$> expr
+        <|> Query <$ reserved "query" <*> ty <* resOp "<:" <*> ty

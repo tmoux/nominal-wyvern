@@ -56,6 +56,12 @@ bind prog = evalState (
               ) []
             ) 0
 
+bindSingleDecl decl ctx cnt = evalState (
+                                runReaderT (
+                                  runExceptT (bindDecl decl)
+                                ) ctx
+                              ) cnt
+
 bindProgram :: Raw.Program -> BindMonad Program
 bindProgram (Raw.Program decls expr) = f decls expr
     where f [] expr = do

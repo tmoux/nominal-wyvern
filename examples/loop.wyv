@@ -10,5 +10,6 @@ type C {z =>
 subtype A extends B
 subtype B extends C
 subtype C extends A
+//Creates a cycle which is disallowed by the graph gen rules.
 
 0
