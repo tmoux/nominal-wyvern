@@ -108,13 +108,11 @@ updateCurPath b@(Binding name _) ctx =
     Nothing   -> ctx {curPath = Just (Var b)}
     Just path -> ctx {curPath = Just (Field path name)}
 -----------
-getGraph prog = runExcept (
-                  evalStateT ( 
-                    runReaderT (
-                      execWriterT (buildGraph prog)
-                    ) initCtx
-                  ) initSCtx
-                )
+getGraph prog = evalStateT ( 
+                  runReaderT (
+                    execWriterT (buildGraph prog)
+                  ) initCtx
+                ) initSCtx
 
 buildGraph :: Program -> TGMonad ()
 buildGraph (Program decls expr) = f decls expr
@@ -169,8 +167,6 @@ genEdges b (MemberRef _ _ _ (Type bt rt):rest) br ba = do
 genEdges _ _ _ _ = throwError "should never happen"
 
 --naive cycle checking
-runCycleCheck es = runExcept (checkCycles es)
-
 checkCycles :: [Edge] -> Except String ()
 checkCycles es = mapM_ (dfs es' []) vertices
   where vertices = foldr (\(Edge from _ to) vs -> [from,to] `union` vs) [] es

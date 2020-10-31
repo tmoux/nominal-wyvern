@@ -17,8 +17,8 @@ type RegionalBank {b =>
 }
 subtype RegionalBank extends Bank
 
-type Utils {z =>
-  def giveChildren(card:SecuredCard):Unit
+def giveChildren(card:SecuredCard):Unit {
+  Unit
 }
 
 val pnc : Bank {type Card = CreditCard} = new Bank {type Card = CreditCard} {b =>
@@ -44,4 +44,4 @@ val veryCautiousBank : RegionalBank {type Card = SecuredCard} = new RegionalBank
 val one : Int = 1
 val myCard : veryCautiousBank.Card = veryCautiousBank.applyForCard(one)
 val legal : Unit = veryCautiousBank.payOff(myCard)
-one
+giveChildren(myCard)

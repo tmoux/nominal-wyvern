@@ -13,7 +13,7 @@ data Error = OtherErr String
     deriving (Show)
 
 type Context = [Refinement]
-type TCMonad = ExceptT String (Reader Context)
+type TCMonad = ReaderT Context (Except String)
 
 assert :: String -> Bool -> TCMonad ()
 assert err True = return ()
@@ -33,7 +33,7 @@ searchCtx pred = do
     where f [] = return False
           f (x:xs) = pred x ||^ f xs
 
-typecheck prog = runReader (runExceptT (typecheckProgram prog)) []
+typecheck prog = runReaderT (typecheckProgram prog) []
 
 typecheckProgram :: Program -> TCMonad Type
 typecheckProgram (Program decls expr) = do

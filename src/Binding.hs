@@ -12,8 +12,9 @@ data Error = OtherErr String
 
 data BindCtx = BindVal Binding
              | BindType Binding
+             | BindDef Binding
 
-type BindMonad = ExceptT String (ReaderT [BindCtx] (State Int))
+type BindMonad = ReaderT [BindCtx] (StateT Int (Except String))
 
 newBinding :: Name -> BindMonad Binding
 newBinding name = do
@@ -21,6 +22,7 @@ newBinding name = do
     put (cnt+1)
     return $ Binding name cnt
 
+--moar code duplication
 fetchVal :: Name -> BindMonad Binding
 fetchVal name = do
     ctx <- ask
@@ -41,26 +43,35 @@ fetchType name = do
     where pred (BindType (Binding b _)) = b == name
           pred _ = False
 
+fetchDef :: Name -> BindMonad Binding
+fetchDef name = do
+    ctx <- ask
+    case (find pred ctx) of
+        Just (BindDef b) -> return b
+        Just _ -> throwError "shouldn't happen"
+        Nothing -> throwError $ "binding lookup failed: " ++ name
+    where pred (BindDef (Binding b _)) = b == name
+          pred _ = False
+
 toBindCtx :: Declaration -> Maybe BindCtx
 toBindCtx d = case d of
-  ValDecl b _ _  -> Just $ BindVal b
+  ValDecl b _ _    -> Just $ BindVal b
   TypeDecl _ b _ _ -> Just $ BindType b
+  DefDecl b _ _ _  -> Just $ BindDef b
   _ -> Nothing
 
 convertTA Raw.Shape    = Shape
 convertTA Raw.Material = Material
 
-bind prog = evalState (
-              runReaderT (
-                runExceptT (bindProgram prog)
-              ) []
+bind prog = evalStateT (
+              runReaderT (bindProgram prog) []
             ) 0
 
-bindSingleDecl decl ctx cnt = evalState (
-                                runReaderT (
-                                  runExceptT (bindDecl decl)
-                                ) ctx
-                              ) cnt
+--bindSingleDecl decl ctx cnt = evalState (
+--                                runReaderT (
+--                                  runExceptT (bindDecl decl)
+--                                ) ctx
+--                              ) cnt
 
 bindProgram :: Raw.Program -> BindMonad Program
 bindProgram (Raw.Program decls expr) = f decls expr
@@ -167,16 +178,26 @@ bindExpr e = case e of
     decls' <- local ((BindVal b):) $ mapM bindDecl decls
     return $ New ty' b decls'
   Raw.Call path args -> do
-    path' <- bindPath path
+    path' <- bindCallPath path
     args' <- mapM bindPath args
     return $ Call path' args'
   Raw.IntLit i -> return $ IntLit i
   Raw.UnitLit -> return UnitLit  
 
+--hmm lots of code duplication here
 bindPath :: Raw.Path -> BindMonad Path
 bindPath p = case p of
   Raw.Var v -> do
     b <- fetchVal v
+    return $ Var b
+  Raw.Field path name -> do
+    path' <- bindPath path
+    return $ Field path' name
+
+bindCallPath :: Raw.Path -> BindMonad Path
+bindCallPath p = case p of
+  Raw.Var v -> do
+    b <- fetchDef v
     return $ Var b
   Raw.Field path name -> do
     path' <- bindPath path

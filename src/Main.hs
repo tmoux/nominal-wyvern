@@ -7,6 +7,8 @@ import System.Environment
 import System.Console.CmdArgs
 import System.IO
 import Text.ParserCombinators.Parsec
+import Control.Monad.Except
+import Control.Monad.Writer
 import Parser
 import Binding
 import PrettyPrint
@@ -26,48 +28,40 @@ wyv_args = Args {
                     }   &= help ""
                         &= program "wyvern typechecker"
 
-debug :: String -> String -> Int -> IO ()
-debug header str 0 = return ()
-debug header str x = putStrLn $ header ++ str
-
-printList [] = ""
-printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)
 
 main = do
-    arg <- cmdArgs wyv_args
-    let infile = input arg
-    let is_debug = debug_flag arg
-    let is_repl = repl_mode arg
-      
-    prelude <- readFile "lib/Prelude.wyv"
-    input <- readFile infile
+  arg <- cmdArgs wyv_args
+  let infile = input arg
+  let is_debug = debug_flag arg
+  let is_repl = repl_mode arg
+    
+  prelude <- readFile "lib/Prelude.wyv"
+  input <- readFile infile
 
-    if is_repl then do
-        repl [] [] 0
-      else do
-        let parse_res = parse parseProgram "" (prelude ++ input)
-        let raw_ast = case parse_res of
-                    Left err -> error (show err)
-                    Right x -> x
-        --putStrLn $ "Raw AST:\n" ++ show raw_ast
-        let bound_ast = case bind raw_ast of
-                    Left err -> error (show err)
-                    Right x -> x
-        putStrLn $ "Bound AST:\n" ++ show bound_ast
-        let type_graph = case getGraph bound_ast of
-                    Left err -> error (show err)
-                    Right x -> x
-        putStrLn $ "Type graph:\n" ++ printList type_graph
-        case (runCycleCheck type_graph) of
-                    Left err -> error (show err)
-                    Right _ -> return ()
-        let ty = case typecheck bound_ast of
-                    Left err -> error (show err)
-                    Right x -> x
-        putStrLn $ "Type: " ++ (show ty)
+  if is_repl then do
+    return ()
+  else 
+    case runExcept $ execWriterT $ runFile (prelude ++ input) of
+      Left err -> error err
+      Right x -> putStrLn x
 
+runFile :: String -> WriterT String (Except String) ()
+runFile input = do
+  let parse_res = parse parseProgram "" input
+  raw_ast <- case parse_res of
+    Left err -> throwError (show err)
+    Right x -> return x
+  bound_ast <- lift $ bind raw_ast
+  type_graph <- lift $ getGraph bound_ast 
+  lift $ checkCycles type_graph
+  ty <- lift $ typecheck bound_ast 
+  --tell $ "Raw AST:\n" ++ show raw_ast
+  tell $ "Bound AST:\n" ++ show bound_ast ++ "\n"
+  tell $ "Type graph:\n" ++ printList type_graph ++ "\n"
+  tell $ "Type: " ++ (show ty) ++ "\n"
 
 --TODO
+{-
 repl :: [Declaration] -> [BindCtx] -> Int -> IO ()
 repl decls bindctx cnt = do
   putStr "> "
@@ -83,3 +77,7 @@ repl decls bindctx cnt = do
         Reset -> do
           putStrLn "Resetting."
           repl [] [] 0
+-}
+
+printList [] = ""
+printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)

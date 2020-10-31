@@ -14,32 +14,8 @@ languageDef =
              , Token.commentLine    = "//"
              , Token.identStart     = letter <|> char '_'
              , Token.identLetter    = alphaNum <|> char '_'
-             , Token.reservedNames  = [ "val"
-                                      , "def"
-                                      , "type"
-                                      , "new"
-                                      , "subtype"
-                                      , "extends"
-                                      , "Unit"
-                                      , "Bot"
-                                      , "@shape"
-                                      , "quit"
-                                      , "reset"
-                                      , "query"
-                                      ]
-            , Token.reservedOpNames = [ "="
-                                      , "<="
-                                      , "="
-                                      , ">="
-                                      , "+"
-                                      , "."
-                                      , ":"
-                                      , ","
-                                      , "{"
-                                      , "}"
-                                      , "=>"
-                                      , "<:"
-                                      ]
+             , Token.reservedNames  = [ "val", "def", "type", "new", "subtype", "extends", "Unit", "Bot", "@shape", "quit", "reset", "query"]
+            , Token.reservedOpNames = [ "=", "<=", "=", ">=", "+", ".", ":", ",", "{", "}", "=>", "<:"]
     }
               
 lexer = Token.makeTokenParser languageDef
