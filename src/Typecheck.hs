@@ -57,10 +57,11 @@ typecheckDecl d = case d of
     DefDecl method args retTy prog -> do
         let argTypes = map (\(Arg _ t) -> t) args
         let argVals = map (\(Arg b t) -> ValRef b t) args
-        (local (argVals++) $ (checkAll typeWF argTypes)) >>= assert (printf "%s: argument types not wf" (show method))
-        progTy <- local (argVals++) $ typecheckProgram prog
-        (local (argVals++) $ isSubtype progTy retTy) >>= assert (printf "def %s: invalid subtype: expected %s, got %s)" (show method) (show retTy) (show progTy))
-        return $ DefRef method args retTy        
+        local (argVals++) $ do  
+          (checkAll typeWF argTypes) >>= assert (printf "%s: argument types not wf" (show method))
+          progTy <- typecheckProgram prog
+          isSubtype progTy retTy >>= assert (printf "def %s: invalid subtype: expected %s, got %s)" (show method) (show retTy) (show progTy))
+          return $ DefRef method args retTy        
     TypeDecl ta t z decls -> do
         let zt = ValRef z (makeNomType t)
         let tt = TypeRef ta t z decls
@@ -149,6 +150,7 @@ unfoldBaseType base = case base of
           MemberRef _ _ bound ty -> case bound of
             GEQ -> return (Binding "z" (-1),[]) --unit binding
             _ -> unfold $ substType pa z ty
+          _ -> throwError "should never match this"
           where pred (TypeRef _ (Binding b _)  _ _) = b == na
                 pred (MemberRef _ (Binding b _) _ _) = b == na 
                 pred _ = False
@@ -237,6 +239,8 @@ isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
       BotType -> return True
       _ ->  equalType t2 theUnit 
         ||^ (isSubtypeBase t1 b2 &&^ do
+              --checkPerm isSubtypeRef r1 r2)
+              --this (above) is the old rule, the next two lines is the new rule
               (z,r1') <- unfold t1
               local (ValRef z t1:) $ checkPerm isSubtypeRef r1' r2)
  
@@ -271,7 +275,7 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
     return $ (b1 == b2) && argsSubtype && retSubtype
   (TypeRef _ b@(Binding t1 _) z1 rs1,TypeRef _ (Binding t2 _) z2 rs2) -> do
     let rs2' = map (substRefines (Var z1) z2) rs2
-    isEq <- local (ValRef z1 (makeNomType b):) $ checkPerm equalRef rs1 rs2'
+    isEq <- local (ValRef z1 (makeNomType b):) $ checkPerm isSubtypeRef rs1 rs2'
     return $ (t1 == t2) && isEq
   (MemberRef _ (Binding b1 _) bound1 t1,MemberRef _ (Binding b2 _) bound2 t2) -> do
     if b1 == b2 then
@@ -283,7 +287,7 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
         (EQQ,GEQ) -> checkContra
         _         -> return False
       else return False
-        where checkEq      = equalType t1 t2
+        where --checkEq      = equalType t1 t2
               checkCov     = isSubtype t1 t2
               checkContra  = isSubtype t2 t1
   (SubtypeRef s1 t1,SubtypeRef s2 t2) -> do

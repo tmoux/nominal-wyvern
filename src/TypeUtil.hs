@@ -86,3 +86,4 @@ substRefines p x r = case r of
     DefRef b args retTy  -> DefRef b (map (\(Arg bi t) -> Arg bi (substType p x t)) args) (substType p x retTy)
     TypeRef ta b z rs       -> TypeRef ta b z (map (substRefines p x) rs)
     MemberRef ta b bound ty -> MemberRef ta b bound (substType p x ty)
+    SubtypeRef t1 b2 -> SubtypeRef (substType p x t1) (substBaseType p x b2)

@@ -84,6 +84,7 @@ absPath b@(Binding name _) = do
 absType :: Binding -> TGMonad PType
 absType b@(Binding name _) = do
   cur <- reader curPath
+  traceM $ printf "curPath = %s, absType %s" (show cur) (show b)
   case cur of 
     Nothing   -> return $ PVar b
     Just path -> do
@@ -123,20 +124,14 @@ buildGraph (Program decls expr) = f decls expr
           buildGraphDecl d
           f ds expr
 
-buildGraphDecl :: Declaration -> TGMonad () --return something useful?
-buildGraphDecl d = case d of
-  TypeDecl ta ty z rs -> do
-    tyPath <- absType ty
-    addPath (Var z) tyPath 
-    addPType tyPath ta
-    local (updateCurPath z) $ mapM_ rootGE (ref rs)
-    where 
-      rootGE (MemberRef ta t _ (Type bt rt)) = do
-        bt' <- getPType bt
-        nt  <- absType t
-        addPType nt ta
-        genEdges bt' rt nt []
-  SubtypeDecl (Type n1 r1) n2 -> do
+buildGraphRef :: Refinement -> TGMonad ()
+buildGraphRef r = case r of
+  MemberRef ta t _ (Type bt rt) -> do
+    bt' <- getPType bt
+    nt  <- absType t
+    addPType nt ta
+    genEdges bt' rt nt []
+  SubtypeRef (Type n1 r1) n2 -> do
     n1' <- getPType n1
     n2' <- getPType n2
     tell [Edge n2' [] n1']
@@ -146,6 +141,20 @@ buildGraphDecl d = case d of
             tell [Edge n2' [] nr']
             mapM_ (recRefs n2') rr
           recRefs n2 _ = return () --ignore non type member refinements for now (?)
+  TypeRef ta ty z rs -> do
+    tyPath <- absType ty
+    zpath <- absPath z
+    addPath zpath tyPath 
+    addPType tyPath ta
+    local (updateCurPath z) $ mapM_ buildGraphRef rs
+  _ -> return ()
+
+buildGraphDecl :: Declaration -> TGMonad () --return something useful?
+buildGraphDecl d = case d of
+  TypeDecl ta ty z rs -> do
+    buildGraphRef (TypeRef ta ty z rs)
+  SubtypeDecl t1 n2 -> do
+    buildGraphRef (SubtypeRef t1 n2)
   ValDecl b (Type base _) expr -> do
     buildGraphExpr expr
     vpath <- absPath b
