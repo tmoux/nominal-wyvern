@@ -26,31 +26,25 @@ subtype Cons extends List
 type Param {z =>
   type A <= Unit
 }
-type AA {z =>
-  def makeNil(a:Param):List {type T <= a.A}
-  def makeCons(a:Param, x:a.A, xs:List {type T <= a.A}):Cons {type T <= a.A}
-}
 
-val aa : AA = new AA {this =>
-  def makeNil(a:Param):List {type T <= a.A} {
-    new Nil {type T <= a.A} {z =>
-      type T = a.A
-      def foldr(m:Monoid {type T >= z.T}):m.T {
-        m.id
-      }
+def makeNil(a:Param):List {type T <= a.A} {
+  new Nil {type T <= a.A} {z =>
+    type T = a.A
+    def foldr(m:Monoid {type T >= z.T}):m.T {
+      m.id
     }
   }
-  def makeCons(a:Param, x:a.A, xs:List {type T <= a.A}):Cons {type T <= a.A} {
-    new Cons {type T <= a.A} {z =>
-      type T = a.A
-      def foldr(m:Monoid {type T >= z.T}):m.T {
-        val tailVal : m.T = z.tail.foldr(m)
-        val ret : m.T = m.op(z.head,tailVal)
-        ret
-      }
-      val head : a.A = x
-      val tail : List {type T <= a.A} = xs
+}
+def makeCons(a:Param, x:a.A, xs:List {type T <= a.A}):Cons {type T <= a.A} {
+  new Cons {type T <= a.A} {z =>
+    type T = a.A
+    def foldr(m:Monoid {type T >= z.T}):m.T {
+      val tailVal : m.T = z.tail.foldr(m)
+      val ret : m.T = m.op(z.head,tailVal)
+      ret
     }
+    val head : a.A = x
+    val tail : List {type T <= a.A} = xs
   }
 }
 
@@ -73,8 +67,8 @@ val UnitM : Monoid {type T = Unit} = new Monoid {type T = Unit} {z =>
 }
 
 val two : Int = 2
-val intNil : List {type T <= Int} = aa.makeNil(IntP)
-val l1 : List {type T <= Int} = aa.makeCons(IntP,two,intNil)
-val l2 : List {type T <= Int} = aa.makeCons(IntP,two,intNil)
+val intNil : List {type T <= Int} = makeNil(IntP)
+val l1 : List {type T <= Int} = makeCons(IntP,two,intNil)
+val l2 : List {type T <= Int} = makeCons(IntP,two,intNil)
 //l2.foldr(Sum)
 l2.foldr(UnitM) //supertypes allowed

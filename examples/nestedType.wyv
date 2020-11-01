@@ -1,10 +1,10 @@
 type ModuleA {z =>
-  type A {z =>
+  type A {x =>
     val v : Unit
     type T <= Unit
   }
 
-  type B {z =>
+  type B {y =>
     val v : Unit
     val u : Unit
     type T <= Unit
@@ -12,4 +12,22 @@ type ModuleA {z =>
   subtype z.B extends z.A
 }
 
-0
+val ma : ModuleA = new ModuleA {z =>
+  type A {aa =>
+    val v : Unit
+    type T <= Unit
+  }
+
+  type B {bb =>
+    val v : Unit
+    val u : Unit
+    type T <= Unit
+  }
+  subtype z.B extends z.A
+}
+
+val a : ma.A = new ma.A {x =>
+  val v : Unit = Unit
+  type T = Unit
+}
+a
