@@ -32,7 +32,10 @@ data SContext = SContext {
                   pTypeToTA   :: Map.Map PType TypeAnnot
                 , pathToPType :: Map.Map Path PType
                 }
-initSCtx = SContext Map.empty Map.empty
+initSCtx = SContext initPToTA Map.empty
+  where initPToTA = Map.insert PTop Material (
+                    Map.insert PBot Material (
+                    Map.empty))
 
 data Context = Context {
                  curPath    :: Maybe Path --Nothing if top-level, otherwise current path (used to get "absolute" basetype/path for type members)
@@ -84,7 +87,7 @@ absPath b@(Binding name _) = do
 absType :: Binding -> TGMonad PType
 absType b@(Binding name _) = do
   cur <- reader curPath
-  traceM $ printf "curPath = %s, absType %s" (show cur) (show b)
+  --traceM $ printf "curPath = %s, absType %s" (show cur) (show b)
   case cur of 
     Nothing   -> return $ PVar b
     Just path -> do
@@ -100,7 +103,6 @@ getPType base = case base of
     Var x           -> return $ PVar x
     Field path name -> do
       path' <- lookupPath path
-      --path' <- getPType (PathType path)
       return $ PPath path' name
 
 updateCurPath :: Binding -> Context -> Context
@@ -108,7 +110,7 @@ updateCurPath b@(Binding name _) ctx =
   case (curPath ctx) of
     Nothing   -> ctx {curPath = Just (Var b)}
     Just path -> ctx {curPath = Just (Field path name)}
------------
+--------------------------------------
 getGraph prog = evalStateT ( 
                   runReaderT (
                     execWriterT (buildGraph prog)
@@ -124,18 +126,39 @@ buildGraph (Program decls expr) = f decls expr
           buildGraphDecl d
           f ds expr
 
+-- Material shape separation:
+-- A shape is never used as part of a lower bound syntactically (i.e. after ≥ or =).
+-- The upper bound of a shape is always a shape, and named shapes can only subtype named shapes.
+-- Shapes cannot be refined in refinements. <-- this one not added yet...
+
 buildGraphRef :: Refinement -> TGMonad ()
 buildGraphRef r = case r of
-  MemberRef ta t _ (Type bt rt) -> do
+  MemberRef ta t bound (Type bt rt) -> do
     bt' <- getPType bt
     nt  <- absType t
     addPType nt ta
     genEdges bt' rt nt []
+    --check if shape is used as lower bound
+    btTA <- lookupPType bt'
+    case (bound,btTA) of
+      (EQQ,Shape) -> throwError $ printf "invalid shape usage: %s used as lower bound" (show bt)
+      (GEQ,Shape) -> throwError $ printf "invalid shape usage: %s used as lower bound" (show bt)
+      _           -> return ()
+    --If the type member is a shape, check that upper bound is a shape
+    case (ta,bound,btTA) of
+      (Shape,LEQ,Material) -> throwError $ printf "invalid shape usage: %s must be upper bounded by a shape" (show t)
+      _ -> return ()
   SubtypeRef (Type n1 r1) n2 -> do
     n1' <- getPType n1
     n2' <- getPType n2
     tell [Edge n2' [] n1']
     mapM_ (recRefs n2') r1
+    --If n1 is a shape, n2 must be a shape
+    n1TA <- lookupPType n1'
+    n2TA <- lookupPType n2'
+    case (n1TA,n2TA) of
+      (Shape,Material) -> throwError $ printf "invalid shape usage: %s can only subtype shapes, but %s is not a shape" (show n1) (show n2)
+      _ -> return ()
     where recRefs n2' (MemberRef _ _ _ (Type nr rr)) = do
             nr' <- getPType nr
             tell [Edge n2' [] nr']
@@ -143,9 +166,10 @@ buildGraphRef r = case r of
           recRefs n2 _ = return () --ignore non type member refinements for now (?)
   TypeRef ta ty z rs -> do
     tyPath <- absType ty
-    zpath <- absPath z
-    addPath zpath tyPath 
     addPType tyPath ta
+    zpath <- absPath z
+    addPath (Var z) tyPath 
+    addPath zpath tyPath
     local (updateCurPath z) $ mapM_ buildGraphRef rs
   _ -> return ()
 

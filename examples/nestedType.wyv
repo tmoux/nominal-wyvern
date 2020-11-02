@@ -1,11 +1,11 @@
 type ModuleA {z =>
   type A {x =>
-    val v : Unit
     type T <= Unit
+    val v : x.T
   }
 
   type B {y =>
-    val v : Unit
+    val v : y.T
     val u : Unit
     type T <= Unit
   }
@@ -14,12 +14,12 @@ type ModuleA {z =>
 
 val ma : ModuleA = new ModuleA {z =>
   type A {aa =>
-    val v : Unit
     type T <= Unit
+    val v : aa.T
   }
 
   type B {bb =>
-    val v : Unit
+    val v : bb.T
     val u : Unit
     type T <= Unit
   }
@@ -27,7 +27,7 @@ val ma : ModuleA = new ModuleA {z =>
 }
 
 val a : ma.A = new ma.A {x =>
-  val v : Unit = Unit
   type T = Unit
+  val v : Unit = Unit
 }
 a
