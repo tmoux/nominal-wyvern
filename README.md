@@ -8,12 +8,13 @@ An implementation of the Nominal Wyvern type system written in Haskell
 Installation uses [cabal](https://www.haskell.org/cabal/).
 Please run
 ```
-cabal install
+cabal configure
+cabal build
 ```
 
 Then you should be able to run
 ```
-nominal-wyvern [file]
+./dist/build/nominal-wyvern/nominal-wyvern [file]
 ```
 Please see the ```examples/``` folder for some example programs.
 

@@ -1,6 +1,7 @@
 *.hi
 *.o
 Main
+src/Main
 *.swp
 *examples/*.swp
 *lib/*.swp
