@@ -8,6 +8,10 @@ import TypeUtil
 import PrettyPrint
 import Text.Printf
 import Debug.Trace
+import Data.Functor.Identity
+
+instance MonadFail Data.Functor.Identity.Identity where
+  fail = error "pattern match failed"
 
 data Error = OtherErr String
     deriving (Show)

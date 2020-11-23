@@ -14,7 +14,7 @@ cabal build
 
 Then you should be able to run
 ```
-./dist/build/nominal-wyvern/nominal-wyvern [file]
+cabal run nominal-wyvern [file]
 ```
 Please see the ```examples/``` folder for some example programs.
 

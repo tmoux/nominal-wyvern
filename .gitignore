@@ -6,3 +6,5 @@ src/Main
 *examples/*.swp
 *lib/*.swp
 dist/*
+dist-newstyle/*
+cabal.project.local
