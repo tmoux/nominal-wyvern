@@ -140,7 +140,7 @@ add = addCall <$> path <* resOp "+" <*> path
 
 primary = PathExpr <$> path
       <|> UnitLit <$ reserved "Unit"
-      <|> (\x -> IntLit $ fromIntegral x) <$> integer
+      <|> (IntLit . fromIntegral) <$> integer
       <|> new
       <|> parens expr
       <|> UndefLit <$ reserved "undefined"

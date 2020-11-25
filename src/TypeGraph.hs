@@ -26,7 +26,7 @@ instance Show PType where
   show PTop        = "Top"
   show PBot        = "Bot"
   show (PVar b)    = show b
-  show (PPath p n) = printf "%s.%s" (show p) n
+  show (PPath p n) = printf "%s::%s" (show p) n
 
 data SContext = SContext { 
                   pTypeToTA   :: Map.Map PType TypeAnnot

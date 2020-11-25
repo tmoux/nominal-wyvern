@@ -1,0 +1,45 @@
+type ISet {s =>
+  def isEmpty():Int
+  def contains(i:Int):Int
+  def insert(i:Int):ISet
+  def union(s:ISet):ISet
+}
+
+type SET_CONS {c =>
+  def Empty():ISet
+  def Insert(s:ISet,n:Int):ISet
+  def Union(s1:ISet,s2:ISet):ISet
+}
+
+val Set : SET_CONS = new SET_CONS {c =>
+  def Empty():ISet {
+    new ISet {z =>
+      def isEmpty():Int { 1 }
+      def contains(i:Int):Int { 0 }
+      def insert(i:Int):ISet { c.Insert(z,i) }
+      def union(s:ISet):ISet { s }
+    }
+  }
+  def Insert(s:ISet,n:Int):ISet {
+    new ISet {z =>   
+      def isEmpty():Int { 0 }
+      def contains(i:Int):Int { 0 }
+      def insert(i:Int):ISet { c.Insert(z,i) }
+      def union(s:ISet):ISet { c.Union(z,s) }
+    }
+  }
+  def Union(s1:ISet,s2:ISet):ISet {
+    new ISet {z =>   
+      def isEmpty():Int { 0 }
+      def contains(i:Int):Int { 0 }
+      def insert(i:Int):ISet { c.Insert(z,i) }
+      def union(s:ISet):ISet { c.Union(z,s) }
+    }
+  }
+}
+
+val one : Int = 1
+val s1 : ISet = Set.Empty()
+val s2 : ISet = Set.Insert(s1,one)
+s2
+
