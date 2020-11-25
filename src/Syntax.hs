@@ -45,3 +45,4 @@ data Expr =
   | Call Path [Path]
   | IntLit Int
   | UnitLit
+  | UndefLit

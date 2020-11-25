@@ -111,11 +111,13 @@ updateCurPath b@(Binding name _) ctx =
     Nothing   -> ctx {curPath = Just (Var b)}
     Just path -> ctx {curPath = Just (Field path name)}
 --------------------------------------
-getGraph prog = evalStateT ( 
-                  runReaderT (
-                    execWriterT (buildGraph prog)
-                  ) initCtx
-                ) initSCtx
+getGraph prog = runExcept (
+                  evalStateT ( 
+                    runReaderT (
+                      execWriterT (buildGraph prog)
+                    ) initCtx
+                  ) initSCtx
+                )
 
 buildGraph :: Program -> TGMonad ()
 buildGraph (Program decls expr) = f decls expr
@@ -209,7 +211,7 @@ checkCycles es = mapM_ (dfs es' []) vertices
         isMat Shape    = False
 
 dfs :: [Edge] -> [PType] -> PType -> Except String ()
-dfs es stack v = 
+dfs es stack v =
   if v `elem` stack then
     throwError $ printf "Cycle found: %s" (show stack)
     else do

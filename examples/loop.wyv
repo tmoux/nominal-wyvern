@@ -1,11 +1,8 @@
 type A {z =>
-  type T <= Unit
 }
 type B {z =>
-  type S <= A
 }
 type C {z =>
-  type R <= B
 }
 subtype A extends B
 subtype B extends C

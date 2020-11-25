@@ -1,0 +1,16 @@
+type ListAPI {self =>
+  @shape type Equatable {z =>
+    type E >= Bot
+    def equals(a:z.E):Int
+  }
+  type List {z =>
+    type E = self.List {type T = z.T}
+    type T <= Unit
+    def equals(a:z.E):Int
+  }
+  subtype self.List extends self.Equatable
+
+  def nil(u:Unit):self.List {type T = Bot}
+}
+
+0

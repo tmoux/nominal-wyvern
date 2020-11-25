@@ -55,7 +55,7 @@ val zz : IntPair = new IntPair {z =>
   val r : Int = 0
 }
 val origin : Point = pointCons.create(zz)
-val fm : FMoveable = new FMoveable {xx =>
+val fm : FMoveable {type T = Point} = new FMoveable {type T = Point} {xx =>
   type T = Point
   val obj : Point = origin
 }

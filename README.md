@@ -22,5 +22,6 @@ Please see the ```examples/``` folder for some example programs.
 * Check that nested type declarations work
 * Check for valid shape usage (probably at the same time, throw errors as needed)
 * Allow general exprs in function calls (desugar when binding)
+* Make type annotations more lenient (we can infer type of new exprs, for instance)
 * Look into the extra edges rules
 * Later: REPL for typing/subtyping queries

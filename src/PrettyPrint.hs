@@ -76,6 +76,7 @@ instance Show Expr where
       printf "%s(%s)" (show meth) (showSep ", " args)
     IntLit i -> show i
     UnitLit -> "Unit"
+    UndefLit -> "undefined"
 
 instance Show Type where
   show (Type base []) = show base

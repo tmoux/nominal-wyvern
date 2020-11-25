@@ -11,10 +11,7 @@ import Debug.Trace
 import Data.Functor.Identity
 
 instance MonadFail Data.Functor.Identity.Identity where
-  fail = error "pattern match failed"
-
-data Error = OtherErr String
-    deriving (Show)
+  fail = error "monad pattern match fail"
 
 type Context = [Refinement]
 type TCMonad = ReaderT Context (Except String)
@@ -37,7 +34,7 @@ searchCtx pred = do
     where f [] = return False
           f (x:xs) = pred x ||^ f xs
 
-typecheck prog = runReaderT (typecheckProgram prog) []
+typecheck prog = runExcept (runReaderT (typecheckProgram prog) [])
 
 typecheckProgram :: Program -> TCMonad Type
 typecheckProgram (Program decls expr) = do
@@ -111,7 +108,7 @@ typecheckExpr e = case e of
         (return (length esTys == length argsTypeSubbed))
           >>= assert (printf "calling %s: wrong # of arguments" methodName)
         checkPairwise isSubtype esTys argsTypeSubbed 
-          >>= assert (printf "calling %s: subtype check failed when calling method" methodName)
+          >>= assert (printf "calling %s: subtype check failed when calling method, %s not subtypes of %s" methodName (show esTys) (show argsTypeSubbed))
         return $ subfunc retTy --subbed return type
     IntLit _ -> do
         TypeRef _ b _ _ <- lookupCtx pred "failed to find type Int"
@@ -119,6 +116,7 @@ typecheckExpr e = case e of
         where pred (TypeRef _ (Binding b' _) _ _) = b' == "Int"
               pred _ = False
     UnitLit -> return theUnit
+    UndefLit -> return theBot
 
 typecheckPath :: Path -> TCMonad Type
 typecheckPath p = case p of
@@ -213,7 +211,7 @@ isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
   --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2 
   if eqBase then checkPerm isSubtypeRef r1 r2 
-            else recLHS ||^ recRHS ||^ normalAns
+            else normalAns ||^ recLHS ||^ recRHS
   where 
     pred name (MemberRef _ (Binding b _) _ _) = name == b
     pred _ _ = False
@@ -241,12 +239,12 @@ isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
       _ -> return False
     normalAns = case b1 of
       BotType -> return True
-      _ ->  equalType t2 theUnit 
-        ||^ (isSubtypeBase t1 b2 &&^ do
-              --checkPerm isSubtypeRef r1 r2)
-              --this (above) is the old rule, the next two lines is the new rule
-              (z,r1') <- unfold t1
-              local (ValRef z t1:) $ checkPerm isSubtypeRef r1' r2)
+      _ -> equalType t2 theUnit 
+       ||^ (isSubtypeBase t1 b2 &&^ do
+           --checkPerm isSubtypeRef r1 r2)
+           --this (above) is the old rule, the next two lines is the new rule
+           (z,r1') <- unfold t1
+           local (ValRef z t1:) $ checkPerm isSubtypeRef r1' r2)
  
 isSubtypeBase :: Type -> BaseType -> TCMonad Bool
 isSubtypeBase (Type b1 r1) b2 = do
@@ -281,7 +279,16 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
     let rs2' = map (substRefines (Var z1) z2) rs2
     isEq <- local (ValRef z1 (makeNomType b):) $ checkPerm isSubtypeRef rs1 rs2'
     return $ (t1 == t2) && isEq
-  (MemberRef _ (Binding b1 _) bound1 t1,MemberRef _ (Binding b2 _) bound2 t2) -> do
+  (MemberRef _ (Binding b1 _) bound1 t1,MemberRef _ (Binding b2 _) bound2 t2) ->
+    if b1 == b2 then do
+      let (s1,u1) = getBounds bound1 t1
+      let (s2,u2) = getBounds bound2 t2
+      isSubtype s2 s1 &&^ isSubtype u1 u2
+    else return False
+    where getBounds LEQ ty = (theBot,ty)
+          getBounds GEQ ty = (ty,theUnit)
+          getBounds EQQ ty = (ty,ty)
+    {-
     if b1 == b2 then
       case (bound1,bound2) of
         (EQQ,EQQ) -> checkCov &&^ checkContra --checkEq?
@@ -294,6 +301,7 @@ isSubtypeRef a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
         where --checkEq      = equalType t1 t2
               checkCov     = isSubtype t1 t2
               checkContra  = isSubtype t2 t1
+    -}
   (SubtypeRef s1 t1,SubtypeRef s2 t2) -> do
     equalType s1 s2 &&^ equalBaseType t1 t2
   _ -> return False

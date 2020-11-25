@@ -1,8 +1,17 @@
-type Function {z =>
+type Function {f =>
   type A <= Unit
   type B <= Unit
-  def apply(a:z.A):z.B
-  def compose(g:Function {type A = z.B}):Function {type T = z.A, type B = g.B}
+  def apply(a:f.A):f.B
+  //def compose(g:Function {type A = f.B}):Function {type T = f.A, type B = g.B}
+}
+
+val add1 : Function {type A = Int, type B = Int} = new Function {type A = Int, type B = Int} {z =>
+  type A = Int
+  type B = Int
+  def apply(a:z.A):z.B {
+    val one : Int = 1
+    a + one
+  }
 }
 
 type Functor {z =>

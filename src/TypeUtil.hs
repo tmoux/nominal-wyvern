@@ -4,6 +4,7 @@ import Data.List (find)
 import Syntax
 
 theUnit = Type UnitType []
+theBot  = Type BotType  []
 makeNomType s = Type (PathType $ Var s) []
 
 matchRef :: Refinement -> Refinement -> Bool
@@ -36,8 +37,6 @@ ref []                       = []
 ref (x@(MemberRef _ _ _ _):xs) = x:ref xs
 ref (_:xs)                   = ref xs
 
---implementing these since I can't get Control.Monad.Extra to work...
---they short-circuit as expected
 (||^) :: Monad m => m Bool -> m Bool -> m Bool
 (||^) a b = a >>= (\x -> if x then return True else b)
 (&&^) :: Monad m => m Bool -> m Bool -> m Bool

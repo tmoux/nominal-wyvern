@@ -38,28 +38,26 @@ main = do
   prelude <- readFile "lib/Prelude.wyv"
   input <- readFile infile
 
-  if is_repl then do
-    return ()
-  else 
-    case runExcept $ execWriterT $ runFile (prelude ++ input) of
-      Left err -> error err
-      Right x -> putStrLn x
+  if is_repl then return ()
+  else runFile (prelude ++ input)
 
-runFile :: String -> WriterT String (Except String) ()
+runFile :: String -> IO ()
 runFile input = do
-  let parse_res = parse parseProgram "" input
-  raw_ast <- case parse_res of
-    Left err -> throwError (show err)
-    Right x -> return x
-  bound_ast <- lift $ bind raw_ast
-  type_graph <- lift $ getGraph bound_ast 
-  lift $ checkCycles type_graph
-  ty <- lift $ typecheck bound_ast 
-  --tell $ "Raw AST:\n" ++ show raw_ast
-  tell $ "Bound AST:\n" ++ show bound_ast ++ "\n"
-  tell $ "Type graph:\n" ++ printList type_graph ++ "\n"
-  tell $ "Type: " ++ (show ty) ++ "\n"
+  let raw_ast    = getRight $ parse parseProgram "" input
+  let bound_ast  = getRight $ bind raw_ast
+  putStrLn $ "Bound AST:\n" ++ show bound_ast
 
+  let type_graph = getRight $ getGraph bound_ast 
+  putStrLn $ "Type graph:\n" ++ printList type_graph
+  let nocycles   = getRight $ runExcept (checkCycles type_graph)
+  nocycles `seq` putStrLn $ "Type graph looks good"
+  let ty         = getRight $ typecheck bound_ast 
+  putStrLn $ "Type: " ++ (show ty)
+
+getRight :: Show a => Either a b -> b
+getRight e = case e of
+  Left err -> error (show err)
+  Right x  -> x
 --TODO
 {-
 repl :: [Declaration] -> [BindCtx] -> Int -> IO ()

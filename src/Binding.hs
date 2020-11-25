@@ -63,9 +63,9 @@ toBindCtx d = case d of
 convertTA Raw.Shape    = Shape
 convertTA Raw.Material = Material
 
-bind prog = evalStateT (
+bind prog = runExcept (evalStateT (
               runReaderT (bindProgram prog) []
-            ) 0
+            ) 0)
 
 --bindSingleDecl decl ctx cnt = evalState (
 --                                runReaderT (
@@ -183,6 +183,7 @@ bindExpr e = case e of
     return $ Call path' args'
   Raw.IntLit i -> return $ IntLit i
   Raw.UnitLit -> return UnitLit  
+  Raw.UndefLit -> return UndefLit
 
 --hmm lots of code duplication here
 bindPath :: Raw.Path -> BindMonad Path
