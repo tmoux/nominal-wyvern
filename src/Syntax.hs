@@ -7,42 +7,43 @@ data Arg = Arg Binding Type
 
 data TypeAnnot = Shape | Material
 
-data Program = Program [Declaration] Expr
+data Program = Program [TopLevelDeclaration] Expr
 
-data Declaration = 
-    --ValDecl Binding (Maybe Type) Expr
-    ValDecl Binding Type Expr
-  | DefDecl Binding [Arg] Type Program
-  | TypeDecl TypeAnnot Binding Binding [Refinement]
-  | TypeEqDecl Binding Type
+data TopLevelDeclaration
+  = NameDecl TypeAnnot Binding Binding [MemberDeclaration]
   | SubtypeDecl Type BaseType
+
+data MemberDeclaration
+  = TypeMemDecl TypeAnnot Binding Bound Type
+  | ValDecl Binding Type
+  | DefDecl Binding [Arg] Type
+
+data MemberDefinition
+  = TypeMemDefn Binding Type
+  | ValDefn Binding Type Expr
+  | DefDefn Binding [Arg] Type Expr
+
+data Refinement = RefineDecl Binding Bound Type
 
 data Type = Type BaseType [Refinement]
 
-data BaseType =
-    UnitType
+data BaseType
+  = TopType
   | BotType
   | PathType Path
-
-data Refinement =
-    ValRef Binding Type
-  | DefRef Binding [Arg] Type
-  | TypeRef TypeAnnot Binding Binding [Refinement]
-  | MemberRef TypeAnnot Binding Bound Type
-  | SubtypeRef Type BaseType
 
 data Bound = LEQ | EQQ | GEQ
   deriving (Eq)
 
-data Path = 
-    Var Binding
+data Path
+  = Var Binding
   | Field Path Name
   deriving (Eq, Ord)
 
-data Expr = 
-    PathExpr Path
-  | New Type Binding [Declaration]
+data Expr
+  = PathExpr Path
   | Call Path [Path]
-  | IntLit Int
-  | UnitLit
+  | New Type Binding [MemberDeclaration]
+  | Let Binding Expr Expr
+  | TopLit
   | UndefLit
