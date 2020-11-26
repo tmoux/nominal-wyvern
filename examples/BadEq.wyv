@@ -1,5 +1,5 @@
 type Eq {z =>
-  type E <= Unit
+  type E >= Bot
 }
 type List {z =>
   type T <= Unit

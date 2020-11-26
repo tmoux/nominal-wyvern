@@ -133,9 +133,23 @@ buildGraph (Program decls expr) = f decls expr
 -- The upper bound of a shape is always a shape, and named shapes can only subtype named shapes.
 -- Shapes cannot be refined in refinements. <-- this one not added yet...
 
+checkShapesNotInRefs :: Type -> TGMonad ()
+checkShapesNotInRefs (Type _ rs) = mapM_ check rs
+  where check (MemberRef ta t _ (Type bt rt)) = do
+          bt' <- getPType bt
+          btTA <- lookupPType bt'
+          case btTA of
+            Shape    -> invalidShape bt
+            Material -> return ()
+        check _ = return ()
+        invalidShape shape = throwError $ printf "invalid shape usage: shape type %s used in refinement" (show shape)
+
 buildGraphRef :: Refinement -> TGMonad ()
 buildGraphRef r = case r of
-  MemberRef ta t bound (Type bt rt) -> do
+  MemberRef ta t bound t2@(Type bt rt) -> do
+    tyPath <- absType t
+    addPType tyPath ta
+    checkShapesNotInRefs t2
     bt' <- getPType bt
     nt  <- absType t
     addPType nt ta
@@ -159,7 +173,7 @@ buildGraphRef r = case r of
     n1TA <- lookupPType n1'
     n2TA <- lookupPType n2'
     case (n1TA,n2TA) of
-      (Shape,Material) -> throwError $ printf "invalid shape usage: %s can only subtype shapes, but %s is not a shape" (show n1) (show n2)
+      (Shape,Material) -> throwError $ printf "invalid shape usage: %s can only subtype named shapes, but %s is not a shape" (show n1) (show n2)
       _ -> return ()
     where recRefs n2' (MemberRef _ _ _ (Type nr rr)) = do
             nr' <- getPType nr
