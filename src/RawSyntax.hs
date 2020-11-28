@@ -5,48 +5,53 @@ type Name = String
 data TypeAnnot = Shape | Material
   deriving (Show)
 
-data Program = Program [Declaration] Expr
+data Program = Program [TopLevelDeclaration] Expr
     deriving (Show)
 
-data Declaration = 
-    --ValDecl Name Expr | 
-    ValAnnotDecl Name Type Expr
-  | DefDecl Name [(Name,Type)] Type Program
-  | TypeDecl TypeAnnot Name Name [Refinement]
-  | TypeEqDecl Name Type
+data TopLevelDeclaration
+  = NameDecl TypeAnnot Name Name [MemberDeclaration]
   | SubtypeDecl Type BaseType
+  deriving (Show)
+
+data MemberDeclaration
+  = TypeMemDecl TypeAnnot Name Bound Type
+  | ValDecl Name Type
+  | DefDecl Name [(Name,Type)] Type
+  deriving (Show)
+
+data MemberDefinition
+  = TypeMemDefn Name Type
+  | ValDefn Name Type Expr
+  | DefDefn Name [(Name,Type)] Type Expr
+  deriving (Show)
+
+data Refinement = RefineDecl Name Bound Type
   deriving (Show)
 
 data Type = Type BaseType [Refinement]
     deriving (Show)
 
-data BaseType =
-    UnitType
+data BaseType
+  = TopType
   | BotType
-  | PathType Path
+  | NamedType Name
+  | PathType Path Name
   deriving (Show)
 
-data Refinement =
-    ValRef Name Type
-  | DefRef Name [(Name,Type)] Type
-  | TypeRef TypeAnnot Name Name [Refinement]
-  | MemberRef TypeAnnot Name Bound Type
-  | SubtypeRef Type BaseType
-  deriving (Show)
-
-data Bound = LEQ | EQQ | GEQ
-  deriving (Show)
-
-data Path = 
-    Var Name
+data Path
+  = Var Name
   | Field Path Name
   deriving (Show)
 
-data Expr = 
-    PathExpr Path
-  | New Type Name [Declaration]
-  | Call Path [Path]
+data Expr
+  = PathExpr Path
+  | Call Path Name [Path]
+  | New Type Name [MemberDefinition]
+  | Let Name Expr Expr
   | IntLit Int
-  | UnitLit
+  | TopLit
   | UndefLit
+  deriving (Show)
+
+data Bound = LEQ | EQQ | GEQ
   deriving (Show)

@@ -4,17 +4,15 @@
 module Main where
 
 import System.Environment
-import System.Console.CmdArgs
+import System.Console.CmdArgs 
 import System.IO
-import Text.ParserCombinators.Parsec
 import Control.Monad.Except
 import Control.Monad.Writer
 import Parser
-import Binding
+--import Binding
 import PrettyPrint
-import TypeGraph
+--import TypeGraph
 import Typecheck
-import Syntax
 
 data Args = Args { input :: FilePath
                  , debug_flag :: Bool
@@ -43,7 +41,9 @@ main = do
 
 runFile :: String -> IO ()
 runFile input = do
-  let raw_ast    = getRight $ parse parseProgram "" input
+  let raw_ast    = getRight $ parseFile input
+  putStrLn $ "Raw AST:\n" ++ show raw_ast
+  {-
   let bound_ast  = getRight $ bind raw_ast
   putStrLn $ "Bound AST:\n" ++ show bound_ast
 
@@ -53,29 +53,12 @@ runFile input = do
   nocycles `seq` putStrLn $ "Type graph looks good"
   let ty         = getRight $ typecheck bound_ast 
   putStrLn $ "Type: " ++ (show ty)
+  -}
 
 getRight :: Show a => Either a b -> b
 getRight e = case e of
   Left err -> error (show err)
   Right x  -> x
---TODO
-{-
-repl :: [Declaration] -> [BindCtx] -> Int -> IO ()
-repl decls bindctx cnt = do
-  putStr "> "
-  hFlush stdout
-  inp <- fmap (parse parseRepl "") getLine   
-  case inp of
-    Left err -> do
-      putStrLn $ show err
-      repl decls bindctx cnt
-    Right x -> 
-      case x of
-        Quit -> putStrLn "Quitting."
-        Reset -> do
-          putStrLn "Resetting."
-          repl [] [] 0
--}
 
 printList [] = ""
 printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)

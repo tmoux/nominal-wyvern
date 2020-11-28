@@ -9,9 +9,9 @@ languageDef =
     emptyDef { Token.commentStart   = "/*"
              , Token.commentEnd     = "*/"
              , Token.commentLine    = "//"
-             , Token.identStart     = letter <|> char '_'
+             , Token.identStart     = letter
              , Token.identLetter    = alphaNum <|> char '_'
-             , Token.reservedNames  = [ "val", "def", "type", "new", "subtype", "extends", "Unit", "Bot", "undefined", "@shape", "quit", "reset", "query"]
+             , Token.reservedNames  = [ "name", "val", "def", "type", "new", "subtype", "let", "in", "Top", "Bot", "undefined", "@shape"]
             , Token.reservedOpNames = [ "=", "<=", "=", ">=", "+", ".", ":", ",", "{", "}", "=>", "<:"]
     }
               
@@ -29,150 +29,112 @@ colon      = Token.reservedOp lexer ":"
 comma      = Token.reservedOp lexer ","
 
 --parser definition
+parseFile = parse parseProgram ""
 parseProgram :: Parser Program
 parseProgram = whiteSpace >> parseProgram'
-    where parseProgram' = (\x y -> Program x y) <$> many decl <*> expr
+    where parseProgram' = Program <$> many tlDecl <*> expr
 
---declarations
-decl :: Parser Declaration
-decl = try valAnnotDecl
-   <|> try defdecl
-   <|> try typedecl
-   <|> try typeEqDecl
-   <|> try subtypedecl
+annot (Just _) = Shape
+annot Nothing  = Material
+typeAnnot = annot <$> optionMaybe (reserved "@shape")
+--top-level declarations
+tlDecl = nameDecl <|> subtypeDecl
+  where nameDecl = NameDecl <$> typeAnnot
+                            <*  reserved "name"
+                            <*> identifier
+                            <*  resOp "{" 
+                            <*> identifier <* resOp "=>"
+                            <*> many memberDecl
+                            <*  resOp "}"
+        subtypeDecl = SubtypeDecl <$  reserved "subtype"
+                                  <*> ty
+                                  <*  resOp "<:"
+                                  <*> basetype
+--member declarations
+memberDecl = typeMemDecl <|> valDecl <|> defDecl
+  where typeMemDecl = TypeMemDecl <$> typeAnnot
+                                  <*  reserved "type"
+                                  <*> identifier
+                                  <*> bound
+                                  <*> ty
+        valDecl = ValDecl <$  reserved "val"
+                          <*> identifier
+                          <*  colon
+                          <*> ty
+        defDecl = DefDecl <$  reserved "def"
+                          <*> identifier
+                          <*> parens (((,) <$> identifier <* colon <*> ty) `sepBy` comma)
+                          <*  colon
+                          <*> ty
 
-{-
-valdecl = ValDecl <$  reserved "val"
-                  <*> identifier 
-                  <*  resOp "="
-                  <*> expr
--}
-
-valAnnotDecl = ValAnnotDecl <$  reserved "val"
+--definitions
+defn :: Parser MemberDefinition
+defn = fieldDefn <|> defDefn <|> typeDefn
+  where fieldDefn = ValDefn <$  reserved "val"
                             <*> identifier
                             <*  colon
                             <*> ty
                             <*  resOp "="
                             <*> expr
-
-defdecl = DefDecl <$  reserved "def"
-                  <*> identifier
-                  <*> parens (((,) <$> identifier <* colon <*> ty) `sepBy` comma)
-                  <*  colon
-                  <*> ty
-                  <*> braces parseProgram
-
-typeAnnot = f <$> optionMaybe (reserved "@shape")
-  where f (Just _) = Shape
-        f Nothing  = Material
-
-typedecl = TypeDecl <$> typeAnnot
-                    <*  reserved "type"
-                    <*> identifier
-                    <*  resOp "{" 
-                    <*> identifier <* resOp "=>"
-                    <*> many refine
-                    <*  resOp "}"
-
-typeEqDecl = TypeEqDecl <$  reserved "type"
-                <*> identifier
-                <*  resOp "="
-                <*> ty
-
-subtypedecl = SubtypeDecl <$  reserved "subtype"
+        defDefn = DefDefn <$  reserved "def"
+                          <*> identifier
+                          <*> parens (((,) <$> identifier <* colon <*> ty) `sepBy` comma)
+                          <*  colon
                           <*> ty
-                          <*  reserved "extends"
-                          <*> basetype
+                          <*> braces expr
+        typeDefn = TypeMemDefn <$  reserved "type"
+                               <*> identifier
+                               <*  resOp "="
+                               <*> ty
+
 --refinements
-refine = try valref
-     <|> try defref
-     <|> try typeref
-     <|> try memberref
-     <|> try subtyperef
-
-valref = ValRef <$  reserved "val"
-                <*> identifier
-                <*  colon
-                <*> ty
-
-defref = DefRef <$  reserved "def"
-                <*> identifier
-                <*> parens (((,) <$> identifier <* colon <*> ty) `sepBy` comma)
-                <*  colon
-                <*> ty
-
-typeref = TypeRef <$> typeAnnot 
-                  <*  reserved "type"
-                  <*> identifier
-                  <*  resOp "{"
-                  <*> identifier <* resOp "=>"
-                  <*> many refine
-                  <*  resOp "}"
-
-memberref = MemberRef <$> typeAnnot
-                      <*  reserved "type"
-                      <*> identifier
-                      <*> bound
-                      <*> ty
-
-subtyperef = SubtypeRef <$  reserved "subtype"
-                        <*> ty
-                        <*  reserved "extends"
-                        <*> basetype
-
-bound :: Parser Bound
-bound = LEQ <$ resOp "<="
-    <|> EQQ <$ resOp "="
-    <|> GEQ <$ resOp ">="
+refine = RefineDecl <$  reserved "type"
+                    <*> identifier
+                    <*> bound
+                    <*> ty
 
 --expressions
 path :: Parser Path
 path = chainl1 (Var <$> identifier) ((\p (Var f) -> Field p f) <$ dot)
 
 expr = try call
-   <|> try add
    <|> try primary
+   <|> try letexpr
 
-call = Call <$> path <*> parens (path `sepBy` comma)
-
-add = addCall <$> path <* resOp "+" <*> path
-  where addCall = \a b -> Call (Field a "plus") [b]
+call = Call <$> path
+            <*  dot <*> identifier
+            <*> parens (path `sepBy` comma)
 
 primary = PathExpr <$> path
-      <|> UnitLit <$ reserved "Unit"
+      <|> TopLit <$ reserved "Top"
+      <|> UndefLit <$ reserved "undefined"
       <|> (IntLit . fromIntegral) <$> integer
       <|> new
       <|> parens expr
-      <|> UndefLit <$ reserved "undefined"
-
-new = New <$ reserved "new" 
-  <*> ty
-  <*  resOp "{"
-  <*> identifier <* resOp "=>"
-  <*> many decl
-  <*  resOp "}"
+  where new = New <$  reserved "new" 
+                  <*> ty
+                  <*  resOp "{"
+                  <*> identifier <* resOp "=>"
+                  <*> many defn
+                  <*  resOp "}"
+letexpr = Let <$  reserved "let"
+              <*> identifier
+              <*  resOp "="
+              <*> expr
+              <*  reserved "in"
+              <*> expr
 
 --types
 ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))
      <|> (\x -> Type x []) <$> basetype
 
+basetype = TopType    <$ reserved "Top"
+       <|> BotType    <$ reserved "Bot"  
+       <|> nameOrPath <$> path
+  where nameOrPath (Var n) = NamedType n
+        nameOrPath (Field p t) = PathType p t
 
-basetype = UnitType <$ reserved "Unit"
-       <|> BotType  <$ reserved "Bot"  
-       <|> PathType <$> path
-
-
---repl parser
-data ReplLine = 
-    Quit
-  | Reset
-  | ReplDecl Declaration
-  | ReplExpr Expr
-  | Query Type Type
-  deriving (Show)
-
-parseRepl = Quit <$ reserved "quit"
-        <|> Reset <$ reserved "reset"
-        <|> ReplDecl <$> decl
-        <|> ReplExpr <$> expr
-        <|> Query <$ reserved "query" <*> ty <* resOp "<:" <*> ty
+bound :: Parser Bound
+bound = LEQ <$ resOp "<="
+    <|> EQQ <$ resOp "="
+    <|> GEQ <$ resOp ">="

@@ -1,14 +1,14 @@
-@shape type A {z =>
-    type T <= Unit
+@shape name A {z =>
+    type T <= Top
     val v : z.T
     def f (x:A, y:A) : x.T
 }
-val a : A = new A {this =>
-    type T = Unit
-    val v : Unit = Unit
-    def f(x:A, y:A) : x.T {
-        val ret : x.T = x.v
-        ret
+let a = new A {type T = Top} {this =>
+	type T = Top
+	val v : Top = Top
+	def f(x:A, y:A) : x.T {
+	    let ret = x.v
+	    in ret
+	}
     }
-}
-a.f(a,a)
+in a.f(a,a)
