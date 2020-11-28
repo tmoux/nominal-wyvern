@@ -1,7 +1,10 @@
 module Syntax where
 
 type Name = String
-data Binding = Binding Name Int
+data Binding = Binding 
+  { name :: Name
+  , idx  :: Int
+  }
   deriving (Eq, Ord)
 data Arg = Arg Binding Type
 
@@ -30,10 +33,8 @@ data Type = Type BaseType [Refinement]
 data BaseType
   = TopType
   | BotType
-  | PathType Path
-
-data Bound = LEQ | EQQ | GEQ
-  deriving (Eq)
+  | NamedType Binding
+  | PathType Path Name
 
 data Path
   = Var Binding
@@ -42,8 +43,11 @@ data Path
 
 data Expr
   = PathExpr Path
-  | Call Path [Path]
-  | New Type Binding [MemberDeclaration]
+  | Call Path Name [Path]
+  | New Type Binding [MemberDefinition]
   | Let Binding Expr Expr
   | TopLit
   | UndefLit
+
+data Bound = LEQ | EQQ | GEQ
+  deriving (Eq)
