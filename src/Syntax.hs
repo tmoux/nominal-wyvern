@@ -6,7 +6,10 @@ data Binding = Binding
   , idx  :: Int
   }
   deriving (Eq, Ord)
-data Arg = Arg Binding Type
+data Arg = Arg
+  { argName :: Binding
+  , argType :: Type
+  }
 
 data TypeAnnot = Shape | Material
 
