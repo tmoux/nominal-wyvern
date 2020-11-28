@@ -42,8 +42,10 @@ lookupTLDecls pred msg = do
     Just x  -> return x
     Nothing -> throwError msg
 
-searchCtx :: (MemberDeclaration -> TCMonad Bool) -> [MemberDeclaration] -> TCMonad Bool
-searchCtx pred list = m_or =<< mapM pred list
+searchTLDecls :: (TopLevelDeclaration -> TCMonad Bool) -> TCMonad Bool
+searchTLDecls pred = do
+  tldecls <- reader toplevel
+  anyM pred tldecls
 
 typecheck prog = runExcept (runReaderT (typecheckProgram prog) emptyCtx)
 
@@ -187,8 +189,8 @@ typecheckExpr e = case e of
 typecheckPath :: Path -> TCMonad Type
 typecheckPath p = case p of
     Var b -> do
-        ctx <- ask
-        ValDecl _ ty <- lookupMemberDecls pred errMsg (gamma ctx)
+        gamma <- reader gamma
+        ValDecl _ ty <- lookupMemberDecls pred errMsg gamma
         return ty
         where pred (ValDecl b' _) = b == b'
               pred _ = False
@@ -214,7 +216,7 @@ equalBaseType a b =
       | otherwise -> do
           tau1 <- typecheckPath p1
           tau2 <- typecheckPath p2
-          eqTy <- undefined --equalType tau1 tau2
+          eqTy <- equalType tau1 tau2
           return $ eqTy && (n1 == n2)
     _ -> return False
 
@@ -234,58 +236,47 @@ isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
   --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
   if eqBase then checkPerm isSubtypeRef r1 r2
-            else normalAns ||^ recLHS ||^ recRHS
+            else s_Top ||^ s_Bot ||^ s_Name ||^ s_Upper ||^ s_Lower
   where
-    pred name (MemberRef _ (Binding b _) _ _) = name == b
-    pred _ _ = False
-    recLHS = case b1 of
-      PathType (Field path name) -> do
-        pathTy <- typecheckPath path
-        (z,prs) <- unfold pathTy
-        MemberRef _ _ bound ty <- local (const prs) $ lookupCtx (pred name) ("failed to find type member " ++ name)
-        case bound of
-          GEQ -> return False
-          _   -> do
-            let subbedType = substType path z $ merge ty r1
-            isSubtype subbedType t2
-      _ -> return False
-    recRHS = case b2 of
-      PathType (Field path name) -> do
-        pathTy@(Type base rs) <- typecheckPath path
-        (z,prs) <- unfold pathTy
-        MemberRef _ _ bound ty <- local (const prs) $ lookupCtx (pred name) ("failed to find type member " ++ name)
-        case bound of
-          LEQ -> return False
-          _   -> do
-            let subbedType = substType path z $ merge ty r2
-            isSubtype t1 subbedType
-      _ -> return False
-    normalAns = case b1 of
-      BotType -> return True
-      _ -> equalType t2 theUnit
-       ||^ (isSubtypeBase t1 b2 &&^ do
-           checkPerm isSubtypeRef r1 r2)
+    pred t' (TypeMemDecl _ t _ _) = name t == t'
+    pred t' _ = False
+    lookupMsg t = "failed to find type member " ++ t
+    s_Top = equalType t2 theTop
+    s_Bot = equalType t1 theBot
+    s_Name = (isSubtypeBase t1 b2 &&^ do
+             checkPerm isSubtypeRef r1 r2)
            --this (above) is the old rule, the next two lines is the new rule
            --(z,r1') <- unfold t1
            --local (ValRef z t1:) $ checkPerm isSubtypeRef r1' r2)
-{-
+    s_Upper = case b1 of
+      PathType p t -> do
+        tau_p <- typecheckPath p
+        (z,decls) <- unfold tau_p
+        TypeMemDecl _ _ bound ty <- lookupMemberDecls (pred t) (lookupMsg t) decls
+        case bound of
+          GEQ -> return False
+          _   -> let t1' = subst p z (merge ty r1)
+                 in isSubtype t1' t2
+      _ -> return False
+    s_Lower = case b2 of
+      PathType p t -> do
+        tau_p <- typecheckPath p
+        (z,decls) <- unfold tau_p
+        TypeMemDecl _ _ bound ty <- lookupMemberDecls (pred t) (lookupMsg t) decls
+        case bound of
+          LEQ -> return False
+          _   -> let t2' = subst p z (merge ty r2)
+                 in isSubtype t1 t2'
+      _ -> return False
 isSubtypeBase :: Type -> BaseType -> TCMonad Bool
 isSubtypeBase (Type b1 r1) b2 = do
   --traceM ("isb: " ++ show (Type b1 r1) ++ " <: " ++ show b2)
-  equalBaseType b1 b2 ||^ do
-    ctxOp <- case b1 of
-      PathType (Field path name) -> do
-        pathTy <- typecheckPath path
-        (z,prs) <- unfold pathTy
-        return $ const $ map (substRefines path z) prs
-      _ -> return id
-    local ctxOp $ searchCtx pred
-  where pred (SubtypeRef (Type baseL rsL) baseR) =
+  equalBaseType b1 b2 ||^ searchTLDecls pred
+  where pred (SubtypeDecl (Type baseL rsL) baseR) =
              equalBaseType b1 baseL
          &&^ checkPerm isSubtypeRef r1 rsL
          &&^ isSubtypeBase (Type baseR r1) b2
-        pred _ = return False
--}
+        pred _ = return False 
 
 isSubtypeRef :: Refinement -> Refinement -> TCMonad Bool
 isSubtypeRef a b = isSubtypeMemDecl (refToDecl a) (refToDecl b)
