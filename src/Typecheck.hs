@@ -3,7 +3,7 @@ module Typecheck where
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.Extra
-import Data.List (find)
+import Data.List (find, partition)
 import Syntax
 import TypeUtil
 import PrettyPrint
@@ -49,41 +49,60 @@ typecheck prog = runExcept (runReaderT (typecheckProgram prog) emptyCtx)
 
 typecheckProgram :: Program -> TCMonad Type
 typecheckProgram (Program decls expr) = do
-    decls' <- getDecls decls
-    local (appendTopLevel decls') $ typecheckExpr expr
-    where getDecls []     = return []
-          getDecls (d:ds) = do
-            checkTLDecl d
-            ds' <- local (appendTopLevel [d]) $ getDecls ds
-            return (d:ds')
+    let (names,subs) = partition split decls
+    mapM_ checkTLDecl names
+    local (appendTopLevel decls) $ do
+      mapM_ checkTLDecl subs
+      typecheckExpr expr
+    where split (NameDecl _ _ _ _) = True
+          split (SubtypeDecl _ _)  = False
 
 checkTLDecl :: TopLevelDeclaration -> TCMonad ()
-checkTLDecl d = return ()
-
-typecheckMemberDefn :: MemberDefinition -> TCMonad MemberDeclaration
-typecheckMemberDefn d = undefined
-    {-case d of
-    ValDecl b ty e -> do
-        exprTy <- typecheckExpr e
-        isSubtype exprTy ty >>= assert (printf "val %s: %s is not a subtype of %s" (show b) (show exprTy) (show ty))
-        return $ ValRef b ty
-    DefDecl method args retTy prog -> do
-        let argTypes = map (\(Arg _ t) -> t) args
-        let argVals = map (\(Arg b t) -> ValRef b t) args
-        local (argVals++) $ do
-          (allM typeWF argTypes) >>= assert (printf "%s: argument types not wf" (show method))
-          progTy <- typecheckProgram prog
-          isSubtype progTy retTy >>= assert (printf "def %s: invalid subtype: expected %s, got %s)" (show method) (show retTy) (show progTy))
-          return $ DefRef method args retTy
-    TypeEqDecl b ty -> do
-        typeWF ty >>= assert (printf "type %s not wf" (show ty))
-        return $ MemberRef Material b EQQ ty -- material?
-    -}
+checkTLDecl (NameDecl _ _ z decls) = do
+  let fields = getFields decls
+      paths = map (\v -> Field (Var z) v) fields
+      types = getTypes decls
+  mapM_ (noReference paths) types
+  where getFields [] = []
+        getFields ((ValDecl v _):xs) = name v:getFields xs
+        getFields (_:xs) = getFields xs
+        getTypes [] = []
+        getTypes (TypeMemDecl _ _ _ ty:xs) = ty:getTypes xs
+        getTypes (_:xs) = getTypes xs
+        noReference paths ty = mapM_ (notInType ty) paths
+        notInType (Type base rs) path = do
+          case base of
+            PathType p t -> notInPath p path 
+            _ -> return ()
+          mapM_ (notInRefine path) rs
+        notInRefine path (RefineDecl _ _ ty) = notInType ty path
+        notInPath (Var _) path = return ()
+        notInPath (Field p n) path
+          | p == path = throwError (printf "error when checking name well-formedness: sibling field %s found in path %s" (show path) (show p))
+          | otherwise = notInPath p path 
+checkTLDecl (SubtypeDecl t1 n2) = do
+  (x1,decls1) <- unfoldExpanded t1
+  (x2,decls2) <- unfoldExpanded (Type n2 [])
+  local (appendGamma [ValDecl x1 t1]) $
+    isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= msg
+  where msg = assert (printf "invalid subtype decl: %s not a subtype of %s" (show t1) (show n2))
 
 typeNB :: Type -> TCMonad ()
 typeNB (Type base rs) = case base of
   TopType -> return ()
-  _       -> return ()
+  NamedType n -> return ()
+  BotType -> throwError "bot found when doing NB check"
+  PathType p t -> do
+    tau_p <- typecheckPath p
+    (z,decls) <- unfoldExpanded =<< typeExpand tau_p
+    TypeMemDecl _ _ bound ty <- lookupMemberDecls pred errMsg decls
+    case bound of
+      EQQ -> typeNB ty
+      _   -> throwError (printf "type member %s does not have an exact bound when doing NB check" (show t))
+    where pred (TypeMemDecl _ t' _ _) = t == name t'
+          pred _ = False 
+          errMsg = printf "typeNB: couldn't find type member %s in path %s" t (show p)
+    
 
 defnWF :: MemberDefinition -> TCMonad ()
 defnWF d = case d of
@@ -93,9 +112,9 @@ defnWF d = case d of
     isSubtype tau_v' tau_v >>= assert (printf "val %s: %s is not a subtype of annotation %s" (show v) (show tau_v') (show tau_v))
   DefDefn f args tau_r expr -> do
     let args' = map argToDecl args
-    local (appendGamma args') (do
+    local (appendGamma args') $ do
       tau_r' <- typecheckExpr expr
-      isSubtype tau_r' tau_r >>= assert (printf "defn %s: %s is not a subtype of return type %s" (show f) (show tau_r') (show tau_r)))
+      isSubtype tau_r' tau_r >>= assert (printf "defn %s: %s is not a subtype of return type %s" (show f) (show tau_r') (show tau_r))
 
 newTypeWF :: Type -> Binding -> [MemberDefinition] -> TCMonad ()
 newTypeWF ty z defns = do
