@@ -54,6 +54,8 @@ typecheckProgram (Program decls expr) = do
     let (names,subs) = partition split decls
     mapM_ checkTLDecl names
     local (appendTopLevel decls) $ do
+      ctx <- ask
+      traceM ("ctx: " ++ (show $ toplevel ctx))
       mapM_ checkTLDecl subs
       typecheckExpr expr
     where split (NameDecl _ _ _ _) = True

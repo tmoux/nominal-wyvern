@@ -102,6 +102,7 @@ expr = try call
    <|> try letexpr
 
 call = Call <$> path
+            <*  resOp ","
             <*  dot <*> identifier
             <*> parens (path `sepBy` comma)
 

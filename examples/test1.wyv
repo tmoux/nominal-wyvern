@@ -3,12 +3,12 @@
     val v : z.T
     def f (x:A, y:A) : x.T
 }
-let a = new A {type T = Top} {this =>
+let a = new A {this =>
 	type T = Top
 	val v : Top = Top
 	def f(x:A, y:A) : x.T {
 	    let ret = x.v
 	    in ret
 	}
-    }
-in a.f(a,a)
+}
+in a, .f(a,a)

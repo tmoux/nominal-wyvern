@@ -7,12 +7,8 @@ import Data.List (find)
 import qualified RawSyntax as Raw
 import Syntax
 
-data Error = OtherErr String
-    deriving (Show)
-
 data BindCtx = BindVal Binding
              | BindType Binding
-             | BindDef Binding
 
 type BindMonad = ReaderT [BindCtx] (StateT Int (Except String))
 
@@ -22,118 +18,77 @@ newBinding name = do
     put (cnt+1)
     return $ Binding name cnt
 
---moar code duplication
 fetchVal :: Name -> BindMonad Binding
-fetchVal name = do
-    ctx <- ask
-    case (find pred ctx) of
-        Just (BindVal b) -> return b
-        Just _ -> throwError "shouldn't happen"
-        Nothing -> throwError $ "binding lookup failed: " ++ name
-    where pred (BindVal (Binding b _)) = b == name
-          pred _ = False
+fetchVal v = do
+  ctx <- ask
+  case (find pred ctx) of
+      Just (BindVal b) -> return b
+      Just _ -> throwError "shouldn't happen"
+      Nothing -> throwError $ "binding lookup failed: " ++ v
+  where pred (BindVal b) = name b == v
+        pred _ = False
 
 fetchType :: Name -> BindMonad Binding
-fetchType name = do
-    ctx <- ask
-    case (find pred ctx) of
-        Just (BindType b) -> return b
-        Just _ -> throwError "shouldn't happen"
-        Nothing -> throwError $ "binding lookup failed: " ++ name
-    where pred (BindType (Binding b _)) = b == name
-          pred _ = False
-
-fetchDef :: Name -> BindMonad Binding
-fetchDef name = do
-    ctx <- ask
-    case (find pred ctx) of
-        Just (BindDef b) -> return b
-        Just _ -> throwError "shouldn't happen"
-        Nothing -> throwError $ "binding lookup failed: " ++ name
-    where pred (BindDef (Binding b _)) = b == name
-          pred _ = False
-
-toBindCtx :: Declaration -> Maybe BindCtx
-toBindCtx d = case d of
-  ValDecl b _ _    -> Just $ BindVal b
-  TypeDecl _ b _ _ -> Just $ BindType b
-  DefDecl b _ _ _  -> Just $ BindDef b
-  _ -> Nothing
+fetchType n = do
+  ctx <- ask
+  case (find pred ctx) of
+      Just (BindType b) -> return b
+      Just _ -> throwError "shouldn't happen"
+      Nothing -> throwError $ "binding lookup failed: " ++ n
+  where pred (BindType b) = name b == n
+        pred _ = False
 
 convertTA Raw.Shape    = Shape
 convertTA Raw.Material = Material
+
+convertBound Raw.LEQ = LEQ
+convertBound Raw.EQQ = EQQ
+convertBound Raw.GEQ = GEQ
 
 bind prog = runExcept (evalStateT (
               runReaderT (bindProgram prog) []
             ) 0)
 
---bindSingleDecl decl ctx cnt = evalState (
---                                runReaderT (
---                                  runExceptT (bindDecl decl)
---                                ) ctx
---                              ) cnt
-
 bindProgram :: Raw.Program -> BindMonad Program
-bindProgram (Raw.Program decls expr) = f decls expr
-    where f [] expr = do
-            e <- bindExpr expr
-            return $ Program [] e
-          f (x:xs) expr = do
-            d <- bindDecl x
-            let ctxOp = case (toBindCtx d) of
-                          Just b  -> (b:)
-                          Nothing -> id
-            Program ds e <- local ctxOp $ f xs expr
-            return $ Program (d:ds) e
+bindProgram (Raw.Program decls expr) = do
+  names <- f decls
+  local (names++) $ do
+    decls' <- mapM bindTLDecl decls
+    expr' <- bindExpr expr
+    return (Program decls' expr')
+  where f [] = return []
+        f (Raw.NameDecl _ n _ _:xs) = do
+          n' <- newBinding n
+          xs' <- f xs
+          return (BindType n':xs')
+        f (_:xs) = f xs
 
-bindDecl :: Raw.Declaration -> BindMonad Declaration
-bindDecl d = case d of
-  --Raw.ValDecl b e -> do  
-  --  b' <- newBinding b   
-  --  e' <- bindExpr e
-  --  return $ ValDecl b' Nothing e'
-  Raw.ValAnnotDecl b ty e -> do
-    b'  <- newBinding b
-    ty' <- bindType ty
-    e'  <- bindExpr e
-    return $ ValDecl b' ty' e'
-  Raw.DefDecl b args ty prog -> do
-    b' <- newBinding b
-    let bindArgs [] prog ty = do
-         p'  <- bindProgram prog
-         ty' <- bindType ty
-         return ([],p',ty')
-        bindArgs ((n,t):xs) prog ty = do
-          n' <- newBinding n  
-          t' <- bindType t
-          (ns,p',ty') <- local (BindVal n':) $ bindArgs xs prog ty
-          return (Arg n' t':ns,p',ty')
-    (args',prog',ty') <- bindArgs args prog ty
-    return $ DefDecl b' args' ty' prog'
-  Raw.TypeDecl ta b z refines -> do
+bindTLDecl :: Raw.TopLevelDeclaration -> BindMonad TopLevelDeclaration
+bindTLDecl d = case d of
+  Raw.NameDecl ta n z decls -> do
     let ta' = convertTA ta
-    b' <- newBinding b
+    n' <- fetchType n
     z' <- newBinding z
-    let tType = BindType b'
-    let zVar = BindVal z'    
-    refines' <- local ([zVar,tType] ++) $ mapM bindRefine refines
-    return $ TypeDecl ta' b' z' refines'
-  Raw.TypeEqDecl b ty -> do
-    b' <- newBinding b
-    ty' <- bindType ty
-    return $ TypeEqDecl b' ty'
+    decls' <- local ([BindVal z',BindType n']++) $ mapM bindMemberDecl decls
+    return $ NameDecl ta' n' z' decls'
   Raw.SubtypeDecl t1 t2 -> do
     t1' <- bindType t1
     t2' <- bindBaseType t2
     return $ SubtypeDecl t1' t2'
 
-bindRefine :: Raw.Refinement -> BindMonad Refinement
-bindRefine r = case r of
-  Raw.ValRef b ty -> do
+bindMemberDecl :: Raw.MemberDeclaration -> BindMonad MemberDeclaration
+bindMemberDecl r = case r of
+  Raw.TypeMemDecl ta b bound ty -> do
+    let ta' = convertTA ta
+    b' <- newBinding b
+    let bound' = convertBound bound
+    ty' <- bindType ty
+    return $ TypeMemDecl ta' b' bound' ty'
+  Raw.ValDecl b ty -> do
     b'  <- newBinding b
     ty' <- bindType ty
-    return $ ValRef b' ty'
-  Raw.DefRef b args ty -> do
+    return $ ValDecl b' ty'
+  Raw.DefDecl b args ty -> do
     b' <- newBinding b
     let bindArgs [] ty = do
           ty' <- bindType ty
@@ -144,48 +99,80 @@ bindRefine r = case r of
           (ns,ty') <- local (BindVal n':) $ bindArgs xs ty
           return ((Arg n' t':ns),ty')
     (args',ty') <- bindArgs args ty
-    return $ DefRef b' args' ty'
-  Raw.TypeRef ta b z refines -> do
-    let ta' = convertTA ta
+    return $ DefDecl b' args' ty'
+
+bindMemberDefn :: Raw.MemberDefinition -> BindMonad MemberDefinition
+bindMemberDefn d = case d of
+  Raw.TypeMemDefn b ty -> do
     b' <- newBinding b
-    z' <- newBinding z
-    let tType = BindType b'
-    let zVar = BindVal z'
-    refines' <- local ([zVar,tType] ++) $ mapM bindRefine refines
-    return $ TypeRef ta' b' z' refines'
-  Raw.MemberRef ta b bound ty -> do
-    let ta' = convertTA ta
-    b' <- newBinding b
-    let bound' = case bound of
-                  Raw.LEQ -> LEQ
-                  Raw.EQQ -> EQQ
-                  Raw.GEQ -> GEQ
     ty' <- bindType ty
-    return $ MemberRef ta' b' bound' ty'
-  Raw.SubtypeRef t1 t2 -> do
-    t1' <- bindType t1
-    t2' <- bindBaseType t2
-    return $ SubtypeRef t1' t2'
+    return $ TypeMemDefn b' ty'
+  Raw.ValDefn b ty e -> do
+    b'  <- newBinding b
+    ty' <- bindType ty
+    e'  <- bindExpr e
+    return $ ValDefn b' ty' e'
+  Raw.DefDefn b args ty e -> do
+    b' <- newBinding b
+    let bindArgs [] expr ty = do
+          e'  <- bindExpr expr
+          ty' <- bindType ty
+          return ([],e',ty')
+        bindArgs ((n,t):xs) expr ty = do
+          n' <- newBinding n  
+          t' <- bindType t
+          (ns,e',ty') <- local (BindVal n':) $ bindArgs xs expr ty
+          return (Arg n' t':ns,e',ty')
+    (args',e',ty') <- bindArgs args e ty
+    return $ DefDefn b' args' ty' e'
     
+bindRefinement :: Raw.Refinement -> BindMonad Refinement
+bindRefinement (Raw.RefineDecl t bound ty) = do
+  t' <- newBinding t
+  let bound' = convertBound bound 
+  ty' <- bindType ty
+  return $ RefineDecl t' bound' ty'
+
+bindType :: Raw.Type -> BindMonad Type
+bindType (Raw.Type b rs) = do
+  b' <- bindBaseType b
+  rs' <- mapM bindRefinement rs
+  return $ Type b' rs'
+
+bindBaseType :: Raw.BaseType -> BindMonad BaseType
+bindBaseType b = case b of
+  Raw.TopType -> return TopType
+  Raw.BotType -> return BotType
+  Raw.NamedType n -> do
+    n' <- fetchType n
+    return $ NamedType n'
+  Raw.PathType p t -> do
+    p' <- bindPath p
+    return $ PathType p' t
+
 bindExpr :: Raw.Expr -> BindMonad Expr
 bindExpr e = case e of
   Raw.PathExpr p -> do
     p' <- bindPath p
     return $ PathExpr p'
-  Raw.New ty name decls -> do
+  Raw.Call path meth args -> do
+    path' <- bindPath path
+    args' <- mapM bindPath args
+    return $ Call path' meth args'
+  Raw.New ty name defns -> do
     ty'    <- bindType ty
     b      <- newBinding name
-    decls' <- local ((BindVal b):) $ mapM bindDecl decls
-    return $ New ty' b decls'
-  Raw.Call path args -> do
-    path' <- bindCallPath path
-    args' <- mapM bindPath args
-    return $ Call path' args'
-  Raw.IntLit i -> return $ IntLit i
-  Raw.UnitLit -> return UnitLit  
+    defns' <- local ((BindVal b):) $ mapM bindMemberDefn defns
+    return $ New ty' b defns'
+  Raw.Let x e1 e2 -> do
+    x' <- newBinding x
+    e1' <- bindExpr e1
+    e2' <- local (BindVal x':) $ bindExpr e2
+    return $ Let x' e1' e2'
+  Raw.IntLit i -> undefined --make this a new expr
+  Raw.TopLit -> return TopLit  
   Raw.UndefLit -> return UndefLit
 
---hmm lots of code duplication here
 bindPath :: Raw.Path -> BindMonad Path
 bindPath p = case p of
   Raw.Var v -> do
@@ -194,32 +181,3 @@ bindPath p = case p of
   Raw.Field path name -> do
     path' <- bindPath path
     return $ Field path' name
-
-bindCallPath :: Raw.Path -> BindMonad Path
-bindCallPath p = case p of
-  Raw.Var v -> do
-    b <- fetchDef v
-    return $ Var b
-  Raw.Field path name -> do
-    path' <- bindPath path
-    return $ Field path' name
-
-bindBaseType :: Raw.BaseType -> BindMonad BaseType
-bindBaseType b =  
-  case b of
-    Raw.UnitType   -> return UnitType
-    Raw.BotType    -> return BotType
-    Raw.PathType p ->
-      case p of
-        Raw.Var v -> do
-          v' <- fetchType v
-          return $ PathType $ Var v'
-        Raw.Field _ _ -> do
-          p' <- bindPath p
-          return $ PathType p'
-
-bindType :: Raw.Type -> BindMonad Type
-bindType (Raw.Type b rs) = do
-  b' <- bindBaseType b
-  rs' <- mapM bindRefine rs
-  return $ Type b' rs'

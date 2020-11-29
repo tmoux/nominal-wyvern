@@ -9,7 +9,7 @@ import System.IO
 import Control.Monad.Except
 import Control.Monad.Writer
 import Parser
---import Binding
+import Binding
 import PrettyPrint
 --import TypeGraph
 import Typecheck
@@ -43,17 +43,17 @@ runFile :: String -> IO ()
 runFile input = do
   let raw_ast    = getRight $ parseFile input
   putStrLn $ "Raw AST:\n" ++ show raw_ast
-  {-
   let bound_ast  = getRight $ bind raw_ast
   putStrLn $ "Bound AST:\n" ++ show bound_ast
 
+  {-
   let type_graph = getRight $ getGraph bound_ast 
   putStrLn $ "Type graph:\n" ++ printList type_graph
   let nocycles   = getRight $ runExcept (checkCycles type_graph)
   nocycles `seq` putStrLn $ "Type graph looks good"
+  -}
   let ty         = getRight $ typecheck bound_ast 
   putStrLn $ "Type: " ++ (show ty)
-  -}
 
 getRight :: Show a => Either a b -> b
 getRight e = case e of
