@@ -33,17 +33,17 @@ instance Show TopLevelDeclaration where
   show (SubtypeDecl t1 t2) = printf "subtype %s extends %s" (show t1) (show t2)
   
 instance Show MemberDeclaration where
-  show (TypeMemDecl ta t bound ty) = printf "%stype %s %s %s" (show ta) (show t) (show bound) (show ty)
-  show (ValDecl v t) = printf "val %s: %s" (show v) (show t)
-  show (DefDecl meth args ty) = printf "def %s(%s):%s" (show meth) (showSep ", " args) (show ty)
+  show (TypeMemDecl ta t bound ty) = printf "%stype %s %s %s" (show ta) t (show bound) (show ty)
+  show (ValDecl v t) = printf "val %s: %s" v (show t)
+  show (DefDecl meth args ty) = printf "def %s(%s):%s" meth (showSep ", " args) (show ty)
 
 instance Show MemberDefinition where
-  show (TypeMemDefn b t) = printf "type %s = %s" (show b) (show t)
-  show (ValDefn b ty e)  = printf "val %s : %s = %s" (show b) (show ty) (show e)
-  show (DefDefn b args ty prog) = printf "def %s(%s):%s {\n%s\n}" (show b) (showSep ", " args) (show ty) (indent $ show prog)
+  show (TypeMemDefn b t) = printf "type %s = %s" b (show t)
+  show (ValDefn b ty e)  = printf "val %s : %s = %s" b (show ty) (show e)
+  show (DefDefn b args ty prog) = printf "def %s(%s):%s {\n%s\n}" b (showSep ", " args) (show ty) (indent $ show prog)
 
 instance Show Refinement where
-  show (RefineDecl t bound ty) = printf "type %s %s %s" (show t) (show bound) (show ty)
+  show (RefineDecl t bound ty) = printf "type %s %s %s" t (show bound) (show ty)
 
 instance Show Type where
   show (Type base []) = show base

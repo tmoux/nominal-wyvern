@@ -97,14 +97,19 @@ refine = RefineDecl <$  reserved "type"
 path :: Parser Path
 path = chainl1 (Var <$> identifier) ((\p (Var f) -> Field p f) <$ dot)
 
+pathNotVar = do
+  p <- path
+  case p of
+    Var x -> unexpected "expected path with length > 1"
+    Field p f -> return (p,f)
+
 expr = try call
    <|> try primary
    <|> try letexpr
 
-call = Call <$> path
-            <*  resOp ","
-            <*  dot <*> identifier
-            <*> parens (path `sepBy` comma)
+call = (\(p,t) args -> Call p t args) 
+   <$> pathNotVar
+   <*> parens (path `sepBy` comma)
 
 primary = PathExpr <$> path
       <|> TopLit <$ reserved "Top"

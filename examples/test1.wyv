@@ -5,10 +5,10 @@
 }
 let a = new A {this =>
 	type T = Top
-	val v : Top = Top
+	val v : this.T = Top
 	def f(x:A, y:A) : x.T {
 	    let ret = x.v
 	    in ret
 	}
 }
-in a, .f(a,a)
+in a.f(a,a)

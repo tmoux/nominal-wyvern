@@ -1,19 +1,20 @@
-@shape type Equatable {z =>
+@shape name Equatable {z =>
   type T >= Bot
   def equals (x:z.T) : Int
 }
-type Fruit {z =>
+name Fruit {z =>
   type T >= Bot
   val ID : Int
   val weight : Int
   def equals (x:z.T) : Int
 }
-subtype Fruit extends Equatable
-type Set {z =>
+subtype Fruit <: Equatable
+
+name Set {z =>
   type elemT <= Equatable {type T >= z.elemT}
 }
 
-val fruit_Set : Set {type elemT = Fruit} = new Set {type elemT = Fruit} {z =>
-  type elemT = Fruit
+let fruit_Set = new Set {type elemT = Fruit {type T = Fruit}} {z =>
+  type elemT = Fruit {type T = Fruit}
 }
-fruit_Set
+in fruit_Set

@@ -9,17 +9,17 @@ theTop = Type TopType []
 theBot = Type BotType  []
 makeNomType s = Type (NamedType s) []
 
-argToDecl :: Arg -> MemberDeclaration
-argToDecl (Arg x ty) = ValDecl x ty
-
 sameName :: Binding -> Binding -> Bool
 sameName b1 b2 = name b1 == name b2
+
+argToTup :: Arg -> (Binding,Type)
+argToTup (Arg v ty) = (v,ty)
 
 refToDecl :: Refinement -> MemberDeclaration
 refToDecl (RefineDecl t bound ty) = TypeMemDecl Material t bound ty
 
 matchRef :: Refinement -> Refinement -> Bool
-matchRef (RefineDecl t1 _ _) (RefineDecl t2 _ _) = sameName t1 t2
+matchRef (RefineDecl t1 _ _) (RefineDecl t2 _ _) = t1 == t2
 
 mergeRefs :: [Refinement] -> [Refinement] -> [Refinement]
 mergeRefs new old = new ++ old'

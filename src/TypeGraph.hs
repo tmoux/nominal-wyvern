@@ -15,8 +15,8 @@ import Debug.Trace
 --For clarity, PTypes are the nodes in the type graph
 --They are like base types, but all path types/type members are given "absolute paths",
 --such as A.S or A.B.T rather than z.S or z.b.T
-data PType = 
-    PTop
+data PType
+  = PTop
   | PBot
   | PVar Binding
   | PPath PType Name
@@ -28,21 +28,10 @@ instance Show PType where
   show (PVar b)    = show b
   show (PPath p n) = printf "%s::%s" (show p) n
 
-data SContext = SContext { 
-                  pTypeToTA   :: Map.Map PType TypeAnnot
-                , pathToPType :: Map.Map Path PType
-                }
-initSCtx = SContext initPToTA Map.empty
-  where initPToTA = Map.insert PTop Material (
-                    Map.insert PBot Material (
-                    Map.empty))
+type Context = [TopLevelDeclaration]
+initCtx = []
 
-data Context = Context {
-                 curPath    :: Maybe Path --Nothing if top-level, otherwise current path (used to get "absolute" basetype/path for type members)
-               }
-initCtx = Context Nothing
-
-type TGMonad = WriterT [Edge] (ReaderT Context (StateT SContext (Except String)))
+type TGMonad = WriterT [Edge] (ReaderT Context (Except String))
 
 data Edge = Edge {
               from  :: PType
@@ -112,22 +101,17 @@ updateCurPath b@(Binding name _) ctx =
     Just path -> ctx {curPath = Just (Field path name)}
 --------------------------------------
 getGraph prog = runExcept (
-                  evalStateT ( 
-                    runReaderT (
-                      execWriterT (buildGraph prog)
-                    ) initCtx
-                  ) initSCtx
+                  runReaderT (
+                    execWriterT (buildGraph prog)
+                  ) initCtx
                 )
 
 buildGraph :: Program -> TGMonad ()
-buildGraph (Program decls expr) = f decls expr
-  where f :: [Declaration] -> Expr -> TGMonad ()
-        f [] expr = do
-          return ()
-        f (d:ds) expr = do
-          buildGraphDecl d
-          f ds expr
+buildGraph (Program decls expr) = local (const decls) $ do
+  mapM_ buildGraphDecl decls
 
+buildGraphDecl :: TopLevelDeclaration -> TGMonad ()
+buildGraphDecl = undefined
 -- Material shape separation:
 -- A shape is never used as part of a lower bound syntactically (i.e. after ≥ or =).
 -- The upper bound of a shape is always a shape, and named shapes can only subtype named shapes.

@@ -1,47 +1,58 @@
-type CreditCard {z => }
-type SecuredCard {z => }
-subtype SecuredCard extends CreditCard
-type AuthorizedUserCard {z => }
-subtype AuthorizedUserCard extends CreditCard
+name Unit {z => }
+name CreditCard {z => }
+name SecuredCard {z => }
+subtype SecuredCard <: CreditCard
+name AuthorizedUserCard {z => }
+subtype AuthorizedUserCard <: CreditCard
 
-type Bank {b =>
-  type Card <= Unit
-  def applyForCard(name:Int):b.Card
+name Bank {b =>
+  type Card <= Top
+  def applyForCard(cardName:Int):b.Card
   def payOff(c:b.Card):Unit
 }
 
-type RegionalBank {b =>
+name RegionalBank {b =>
   type Card <= SecuredCard
-  def applyForCard(name:Int):b.Card
+  def applyForCard(cardName:Int):b.Card
   def payOff(c:b.Card):Unit
 }
-subtype RegionalBank extends Bank
+subtype RegionalBank <: Bank
 
-def giveChildren(card:SecuredCard):Unit {
-  Unit
+name Utils {z =>
+  def giveChildren(card:SecuredCard):Unit
 }
 
-val pnc : Bank {type Card = CreditCard} = new Bank {type Card = CreditCard} {b =>
+let pnc = new Bank {b =>
   type Card = CreditCard
-  def applyForCard(name:Int):b.Card {
+  def applyForCard(cardName:Int):b.Card {
     new CreditCard {z =>}
   }
   def payOff(c:b.Card):Unit {
-    Unit
+    new Unit {z =>}
   }
-}
+} in
 
-val veryCautiousBank : RegionalBank {type Card = SecuredCard} = new RegionalBank {type Card = SecuredCard} {b =>
+let veryCautiousBank = new RegionalBank {b =>
   type Card = SecuredCard
-  def applyForCard(name:Int):b.Card {
+  def applyForCard(cardName:Int):b.Card {
     new SecuredCard {z =>}
   }
   def payOff(c:b.Card):Unit {
-    Unit
+    new Unit {z =>}
   }
-}
+} in
 
-val one : Int = 1
-val myCard : veryCautiousBank.Card = veryCautiousBank.applyForCard(one)
-val legal : Unit = veryCautiousBank.payOff(myCard)
-giveChildren(myCard)
+let one = 1 in
+let myCard = veryCautiousBank.applyForCard(one) in
+let pncCard = pnc.applyForCard(one) in
+let legal = veryCautiousBank.payOff(myCard) in
+//let illegal = pnc.payOff(myCard) in
+
+let utils = new Utils {z =>
+  def giveChildren(card:SecuredCard):Unit {
+    new Unit {z =>}
+  }
+} in
+let pass = utils.giveChildren(myCard) in
+//let fail = utils.giveChildren(pncCard) in
+pass

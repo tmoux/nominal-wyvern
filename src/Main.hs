@@ -6,13 +6,11 @@ module Main where
 import System.Environment
 import System.Console.CmdArgs 
 import System.IO
-import Control.Monad.Except
-import Control.Monad.Writer
-import Parser
-import Binding
+import Parser (parseFile)
+import Binding (bind)
 import PrettyPrint
 --import TypeGraph
-import Typecheck
+import Typecheck (typecheck)
 
 data Args = Args { input :: FilePath
                  , debug_flag :: Bool
@@ -41,8 +39,10 @@ main = do
 
 runFile :: String -> IO ()
 runFile input = do
-  let raw_ast    = getRight $ parseFile input
-  putStrLn $ "Raw AST:\n" ++ show raw_ast
+  let raw_ast = case parseFile input of
+        Left err -> error (show err)
+        Right x  -> x
+  --putStrLn $ "Raw AST:\n" ++ show raw_ast
   let bound_ast  = getRight $ bind raw_ast
   putStrLn $ "Bound AST:\n" ++ show bound_ast
 
@@ -55,9 +55,9 @@ runFile input = do
   let ty         = getRight $ typecheck bound_ast 
   putStrLn $ "Type: " ++ (show ty)
 
-getRight :: Show a => Either a b -> b
+getRight :: Either String b -> b
 getRight e = case e of
-  Left err -> error (show err)
+  Left err -> error err
   Right x  -> x
 
 printList [] = ""

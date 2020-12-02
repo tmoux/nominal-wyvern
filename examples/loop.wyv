@@ -1,12 +1,12 @@
-type A {z =>
+name A {z =>
 }
-type B {z =>
+name B {z =>
 }
-type C {z =>
+name C {z =>
 }
-subtype A extends B
-subtype B extends C
-subtype C extends A
+subtype A <: B
+subtype B <: C
+subtype C <: A
 //Creates a cycle which is disallowed by the graph gen rules.
 
-0
+Top

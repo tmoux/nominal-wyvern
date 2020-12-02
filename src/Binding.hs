@@ -80,16 +80,13 @@ bindMemberDecl :: Raw.MemberDeclaration -> BindMonad MemberDeclaration
 bindMemberDecl r = case r of
   Raw.TypeMemDecl ta b bound ty -> do
     let ta' = convertTA ta
-    b' <- newBinding b
     let bound' = convertBound bound
     ty' <- bindType ty
-    return $ TypeMemDecl ta' b' bound' ty'
+    return $ TypeMemDecl ta' b bound' ty'
   Raw.ValDecl b ty -> do
-    b'  <- newBinding b
     ty' <- bindType ty
-    return $ ValDecl b' ty'
+    return $ ValDecl b ty'
   Raw.DefDecl b args ty -> do
-    b' <- newBinding b
     let bindArgs [] ty = do
           ty' <- bindType ty
           return ([],ty')
@@ -99,21 +96,18 @@ bindMemberDecl r = case r of
           (ns,ty') <- local (BindVal n':) $ bindArgs xs ty
           return ((Arg n' t':ns),ty')
     (args',ty') <- bindArgs args ty
-    return $ DefDecl b' args' ty'
+    return $ DefDecl b args' ty'
 
 bindMemberDefn :: Raw.MemberDefinition -> BindMonad MemberDefinition
 bindMemberDefn d = case d of
   Raw.TypeMemDefn b ty -> do
-    b' <- newBinding b
     ty' <- bindType ty
-    return $ TypeMemDefn b' ty'
+    return $ TypeMemDefn b ty'
   Raw.ValDefn b ty e -> do
-    b'  <- newBinding b
     ty' <- bindType ty
     e'  <- bindExpr e
-    return $ ValDefn b' ty' e'
+    return $ ValDefn b ty' e'
   Raw.DefDefn b args ty e -> do
-    b' <- newBinding b
     let bindArgs [] expr ty = do
           e'  <- bindExpr expr
           ty' <- bindType ty
@@ -124,14 +118,13 @@ bindMemberDefn d = case d of
           (ns,e',ty') <- local (BindVal n':) $ bindArgs xs expr ty
           return (Arg n' t':ns,e',ty')
     (args',e',ty') <- bindArgs args e ty
-    return $ DefDefn b' args' ty' e'
+    return $ DefDefn b args' ty' e'
     
 bindRefinement :: Raw.Refinement -> BindMonad Refinement
 bindRefinement (Raw.RefineDecl t bound ty) = do
-  t' <- newBinding t
   let bound' = convertBound bound 
   ty' <- bindType ty
-  return $ RefineDecl t' bound' ty'
+  return $ RefineDecl t bound' ty'
 
 bindType :: Raw.Type -> BindMonad Type
 bindType (Raw.Type b rs) = do
@@ -169,7 +162,12 @@ bindExpr e = case e of
     e1' <- bindExpr e1
     e2' <- local (BindVal x':) $ bindExpr e2
     return $ Let x' e1' e2'
-  Raw.IntLit i -> undefined --make this a new expr
+  Raw.IntLit i -> do
+    intTy <- bindType (Raw.Type (Raw.NamedType "Int") [])
+    z <- newBinding "z"
+    a <- newBinding "a"
+    let defns = [DefDefn "plus" [Arg a intTy] intTy UndefLit]
+    return $ New intTy z defns
   Raw.TopLit -> return TopLit  
   Raw.UndefLit -> return UndefLit
 

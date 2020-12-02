@@ -20,16 +20,16 @@ data TopLevelDeclaration
   | SubtypeDecl Type BaseType
 
 data MemberDeclaration
-  = TypeMemDecl TypeAnnot Binding Bound Type
-  | ValDecl Binding Type
-  | DefDecl Binding [Arg] Type
+  = TypeMemDecl TypeAnnot Name Bound Type
+  | ValDecl Name Type
+  | DefDecl Name [Arg] Type
 
 data MemberDefinition
-  = TypeMemDefn Binding Type
-  | ValDefn Binding Type Expr
-  | DefDefn Binding [Arg] Type Expr
+  = TypeMemDefn Name Type
+  | ValDefn Name Type Expr
+  | DefDefn Name [Arg] Type Expr
 
-data Refinement = RefineDecl Binding Bound Type
+data Refinement = RefineDecl Name Bound Type
 
 data Type = Type BaseType [Refinement]
 
