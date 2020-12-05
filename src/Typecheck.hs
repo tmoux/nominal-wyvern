@@ -8,50 +8,7 @@ import Syntax
 import TypeUtil
 import PrettyPrint
 import Text.Printf
-import Data.Functor.Identity
 import Debug.Trace
-
-instance MonadFail Data.Functor.Identity.Identity where
-  fail = error "monad pattern match fail"
-
-data Context = Context
-  { toplevel :: [TopLevelDeclaration]
-  , gamma    :: [(Binding,Type)]
-  }
-emptyCtx = Context [] []
-appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
-appendTopLevel ds (Context t g) = Context (ds++t) g
-appendGamma :: [(Binding,Type)] -> Context -> Context
-appendGamma ds (Context t g) = Context t (ds++g)
-type TCMonad = ReaderT Context (Except String)
-
-assert :: String -> Bool -> TCMonad ()
-assert _   True  = return ()
-assert err False = throwError err
-
-lookupMemberDecls :: (MemberDeclaration -> Bool) -> String -> [MemberDeclaration] -> TCMonad MemberDeclaration
-lookupMemberDecls pred msg list =
-  case find pred list of
-    Just x  -> return x
-    Nothing -> throwError msg
-
-lookupGamma :: Binding -> TCMonad Type
-lookupGamma v = do
-  search <- reader (lookup v . gamma) 
-  case search of
-    Just x  -> return x
-    Nothing -> throwError (printf "failed to lookup variable %s" (show v))
-lookupTLDecls :: (TopLevelDeclaration -> Bool) -> String -> TCMonad TopLevelDeclaration
-lookupTLDecls pred msg = do
-  search <- reader (find pred . toplevel)
-  case search of
-    Just x  -> return x
-    Nothing -> throwError msg
-
-searchTLDecls :: (TopLevelDeclaration -> TCMonad Bool) -> TCMonad Bool
-searchTLDecls pred = do
-  tldecls <- reader toplevel
-  anyM pred tldecls
 
 typecheck prog = runExcept (runReaderT (typecheckProgram prog) emptyCtx)
 
@@ -113,28 +70,16 @@ typeNB (Type base rs) = case base of
           pred _ = False 
           errMsg = printf "typeNB: couldn't find type member %s in path %s" t (show p)
 
-defnWF :: MemberDefinition -> TCMonad ()
-defnWF d = case d of
-  TypeMemDefn _ _ -> return ()
-  ValDefn v tau_v expr -> do
-    tau_v' <- typecheckExpr expr
-    isSubtype tau_v' tau_v >>= assert (printf "val %s: %s is not a subtype of annotation %s" (show v) (show tau_v') (show tau_v))
-  DefDefn f args tau_r expr -> do
-    let args' = map argToTup args
-    local (appendGamma args') $ do
-      tau_r' <- typecheckExpr expr
-      isSubtype tau_r' tau_r >>= assert (printf "defn %s: %s is not a subtype of return type %s" (show f) (show tau_r') (show tau_r))
-
 newTypeWF :: Type -> Binding -> [MemberDefinition] -> TCMonad ()
-newTypeWF ty z defns = do
+newTypeWF ty x defns = do
   typeNB ty
   Type n rs <- typeExpand ty
   (x_n,decls_n) <- unfoldExpanded (Type n [])
   let tau_x = Type n (ref.sig $ defns)
-      self = (z,tau_x)
+      self = (x,tau_x)
       ap_self = local (appendGamma [self])
       new_decls = sig defns
-      old_decls = subst (Var z) x_n (map refToDecl rs ++ decls_n)
+      old_decls = subst (Var x) x_n (map refToDecl rs ++ decls_n)
   ap_self $ isStructSubtype new_decls old_decls
     >>= assert (printf "\n%s <:\n%s" (show new_decls) (show old_decls))
   let checkDefn (TypeMemDefn _ _) = return ()

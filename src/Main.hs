@@ -9,7 +9,7 @@ import System.IO
 import Parser (parseFile)
 import Binding (bind)
 import PrettyPrint
---import TypeGraph
+import TypeGraph
 import Typecheck (typecheck)
 
 data Args = Args { input :: FilePath
@@ -46,9 +46,9 @@ runFile input = do
   let bound_ast  = getRight $ bind raw_ast
   putStrLn $ "Bound AST:\n" ++ show bound_ast
 
-  {-
   let type_graph = getRight $ getGraph bound_ast 
   putStrLn $ "Type graph:\n" ++ printList type_graph
+  {-
   let nocycles   = getRight $ runExcept (checkCycles type_graph)
   nocycles `seq` putStrLn $ "Type graph looks good"
   -}

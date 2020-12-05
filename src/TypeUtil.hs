@@ -1,10 +1,57 @@
 module TypeUtil where
 
+import Control.Monad.Except
+import Control.Monad.Reader
 import Control.Monad.Extra
 import Data.List (find)
 import Data.Maybe (isNothing)
 import Syntax
+import PrettyPrint
+import Text.Printf
+import Data.Functor.Identity
 
+instance MonadFail Data.Functor.Identity.Identity where
+  fail = error "monad pattern match fail"
+
+data Context = Context
+  { toplevel :: [TopLevelDeclaration]
+  , gamma    :: [(Binding,Type)]
+  }
+emptyCtx = Context [] []
+appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
+appendTopLevel ds (Context t g) = Context (ds++t) g
+appendGamma :: [(Binding,Type)] -> Context -> Context
+appendGamma ds (Context t g) = Context t (ds++g)
+type TCMonad = ReaderT Context (Except String)
+
+assert :: String -> Bool -> TCMonad ()
+assert _   True  = return ()
+assert err False = throwError err
+
+lookupMemberDecls :: (MemberDeclaration -> Bool) -> String -> [MemberDeclaration] -> TCMonad MemberDeclaration
+lookupMemberDecls pred msg list =
+  case find pred list of
+    Just x  -> return x
+    Nothing -> throwError msg
+
+lookupGamma :: Binding -> TCMonad Type
+lookupGamma v = do
+  search <- reader (lookup v . gamma) 
+  case search of
+    Just x  -> return x
+    Nothing -> throwError (printf "failed to lookup variable %s" (show v))
+lookupTLDecls :: (TopLevelDeclaration -> Bool) -> String -> TCMonad TopLevelDeclaration
+lookupTLDecls pred msg = do
+  search <- reader (find pred . toplevel)
+  case search of
+    Just x  -> return x
+    Nothing -> throwError msg
+
+searchTLDecls :: (TopLevelDeclaration -> TCMonad Bool) -> TCMonad Bool
+searchTLDecls pred = do
+  tldecls <- reader toplevel
+  anyM pred tldecls
+----------------------------------
 theTop = Type TopType []
 theBot = Type BotType  []
 makeNomType s = Type (NamedType s) []
