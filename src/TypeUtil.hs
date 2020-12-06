@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts, ConstraintKinds #-}
 module TypeUtil where
 
 import Control.Monad.Except
@@ -22,32 +23,40 @@ appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
 appendTopLevel ds (Context t g) = Context (ds++t) g
 appendGamma :: [(Binding,Type)] -> Context -> Context
 appendGamma ds (Context t g) = Context t (ds++g)
-type TCMonad = ReaderT Context (Except String)
+--type TCMonad = ReaderT Context (Except String)
+type TC m = (MonadReader Context m, MonadError String m, MonadFail m)
 
-assert :: String -> Bool -> TCMonad ()
+assert :: TC m => String -> Bool -> m ()
 assert _   True  = return ()
 assert err False = throwError err
 
-lookupMemberDecls :: (MemberDeclaration -> Bool) -> String -> [MemberDeclaration] -> TCMonad MemberDeclaration
+lookupMemberDecls :: TC m => (MemberDeclaration -> Bool) -> String -> [MemberDeclaration] -> m MemberDeclaration
 lookupMemberDecls pred msg list =
   case find pred list of
     Just x  -> return x
     Nothing -> throwError msg
 
-lookupGamma :: Binding -> TCMonad Type
+lookupGamma' :: TC m => Binding -> m Type
+lookupGamma' v = do
+  search <- reader (lookup v . gamma)
+  case search of
+    Just x  -> return x
+    Nothing -> throwError (printf "failed to lookup variable %s" (show v))
+
+lookupGamma :: TC m => Binding -> m Type
 lookupGamma v = do
   search <- reader (lookup v . gamma) 
   case search of
     Just x  -> return x
     Nothing -> throwError (printf "failed to lookup variable %s" (show v))
-lookupTLDecls :: (TopLevelDeclaration -> Bool) -> String -> TCMonad TopLevelDeclaration
+lookupTLDecls :: TC m => (TopLevelDeclaration -> Bool) -> String -> m TopLevelDeclaration
 lookupTLDecls pred msg = do
   search <- reader (find pred . toplevel)
   case search of
     Just x  -> return x
     Nothing -> throwError msg
 
-searchTLDecls :: (TopLevelDeclaration -> TCMonad Bool) -> TCMonad Bool
+searchTLDecls :: TC m => (TopLevelDeclaration -> m Bool) -> m Bool
 searchTLDecls pred = do
   tldecls <- reader toplevel
   anyM pred tldecls

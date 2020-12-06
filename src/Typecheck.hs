@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts, ConstraintKinds #-}
 module Typecheck where
 
 import Control.Monad.Except
@@ -12,7 +13,7 @@ import Debug.Trace
 
 typecheck prog = runExcept (runReaderT (typecheckProgram prog) emptyCtx)
 
-typecheckProgram :: Program -> TCMonad Type
+typecheckProgram :: TC m => Program -> m Type
 typecheckProgram (Program decls expr) = do
     let (names,subs) = partition split decls
     mapM_ checkTLDecl names
@@ -24,7 +25,7 @@ typecheckProgram (Program decls expr) = do
     where split (NameDecl _ _ _ _) = True
           split (SubtypeDecl _ _)  = False
 
-checkTLDecl :: TopLevelDeclaration -> TCMonad ()
+checkTLDecl :: TC m => TopLevelDeclaration -> m ()
 checkTLDecl (NameDecl _ _ z decls) = do
   let fields = getFields decls
       paths = map (\v -> Field (Var z) v) fields
@@ -54,7 +55,7 @@ checkTLDecl (SubtypeDecl t1 n2) = do
     isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= msg
   where msg = assert (printf "invalid subtype decl: %s not a subtype of %s" (show t1) (show n2))
 
-typeNB :: Type -> TCMonad ()
+typeNB :: TC m => Type -> m ()
 typeNB (Type base rs) = case base of
   TopType -> return ()
   NamedType n -> return ()
@@ -70,7 +71,7 @@ typeNB (Type base rs) = case base of
           pred _ = False 
           errMsg = printf "typeNB: couldn't find type member %s in path %s" t (show p)
 
-newTypeWF :: Type -> Binding -> [MemberDefinition] -> TCMonad ()
+newTypeWF :: TC m => Type -> Binding -> [MemberDefinition] -> m ()
 newTypeWF ty x defns = do
   typeNB ty
   Type n rs <- typeExpand ty
@@ -93,10 +94,10 @@ newTypeWF ty x defns = do
         ap_self $ isSubtype tau_v' tau_v >>= assert (printf "val %s: %s is not a subtype of annotation %s" v (show tau_v') (show tau_v))
   mapM_ checkDefn defns
 
-unfold :: Type -> TCMonad (Binding,[MemberDeclaration])
+unfold :: TC m => Type -> m (Binding,[MemberDeclaration])
 unfold = typeExpand >=> unfoldExpanded
 
-unfoldExpanded :: Type -> TCMonad (Binding,[MemberDeclaration])
+unfoldExpanded :: TC m => Type -> m (Binding,[MemberDeclaration])
 unfoldExpanded (Type base rs) =
   case base of
     NamedType n -> do
@@ -107,7 +108,7 @@ unfoldExpanded (Type base rs) =
             msg = printf "couldn't find name %s" (show n)
     _ -> return (Binding "z" (-1),map refToDecl rs)
 
-typeExpand :: Type -> TCMonad Type
+typeExpand :: TC m => Type -> m Type
 typeExpand tau@(Type base rs) = case base of
   PathType p t -> do
     tau_p <- typecheckPath p
@@ -121,7 +122,7 @@ typeExpand tau@(Type base rs) = case base of
           errMsg = printf "type expand: couldn't find type member %s in path %s" t (show p)
   _ -> return tau  
 
-typecheckExpr :: Expr -> TCMonad Type
+typecheckExpr :: TC m => Expr -> m Type
 typecheckExpr e = case e of
     PathExpr p -> typecheckPath p
     New ty z rs -> do
@@ -150,7 +151,7 @@ typecheckExpr e = case e of
     TopLit   -> return theTop
     UndefLit -> return theBot
 
-typecheckPath :: Path -> TCMonad Type
+typecheckPath :: TC m => Path -> m Type
 typecheckPath p = case p of
     Var b     -> lookupGamma b
     Field p v -> do
@@ -163,7 +164,7 @@ typecheckPath p = case p of
               errMsg = ("failed to find field " ++ v)
 
 --type equality
-equalBaseType :: BaseType -> BaseType -> TCMonad Bool
+equalBaseType :: TC m => BaseType -> BaseType -> m Bool
 equalBaseType a b =
   {-trace ("eq base type " ++ show a ++ " " ++ show b) $-} case (a,b) of
     (TopType,TopType) -> return True
@@ -178,17 +179,17 @@ equalBaseType a b =
           return $ eqTy && (n1 == n2)
     _ -> return False
 
-equalType :: Type -> Type -> TCMonad Bool
+equalType :: TC m => Type -> Type -> m Bool
 equalType (Type b1 r1) (Type b2 r2) =
   equalBaseType b1 b2 &&^ checkPermDual equalRefinement r1 r2
   --traceM $ (show (Type b1 r1)) ++ " = " ++ (show (Type b2 r2))
 
-equalRefinement :: Refinement -> Refinement -> TCMonad Bool
+equalRefinement :: TC m => Refinement -> Refinement -> m Bool
 equalRefinement (RefineDecl t1 bound1 ty1) (RefineDecl t2 bound2 ty2)
   = (return $ t1 == t2 && bound1 == bound2) &&^ equalType ty1 ty2
 
 --subtyping
-isSubtype :: Type -> Type -> TCMonad Bool
+isSubtype :: TC m => Type -> Type -> m Bool
 isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
   --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
@@ -226,7 +227,7 @@ isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
           _   -> let t2' = subst p z (merge ty r2)
                  in isSubtype t1 t2'
       _ -> return False
-isSubtypeBase :: Type -> BaseType -> TCMonad Bool
+isSubtypeBase :: TC m => Type -> BaseType -> m Bool
 isSubtypeBase (Type b1 r1) b2 = do
   --traceM ("isb: " ++ show (Type b1 r1) ++ " <: " ++ show b2)
   equalBaseType b1 b2 ||^ searchTLDecls pred
@@ -236,13 +237,13 @@ isSubtypeBase (Type b1 r1) b2 = do
          &&^ isSubtypeBase (Type baseR r1) b2
         pred _ = return False 
 
-isSubtypeRef :: Refinement -> Refinement -> TCMonad Bool
+isSubtypeRef :: TC m => Refinement -> Refinement -> m Bool
 isSubtypeRef a b = isSubtypeMemDecl (refToDecl a) (refToDecl b)
 
-isStructSubtype :: [MemberDeclaration] -> [MemberDeclaration] -> TCMonad Bool
+isStructSubtype :: TC m => [MemberDeclaration] -> [MemberDeclaration] -> m Bool
 isStructSubtype as bs = checkPerm isSubtypeMemDecl as bs
 
-isSubtypeMemDecl :: MemberDeclaration -> MemberDeclaration -> TCMonad Bool
+isSubtypeMemDecl :: TC m => MemberDeclaration -> MemberDeclaration -> m Bool
 isSubtypeMemDecl a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
   (TypeMemDecl _ t1 bound1 ty1,TypeMemDecl _ t2 bound2 ty2)
     | t1 == t2 -> case (bound1,bound2) of

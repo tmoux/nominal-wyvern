@@ -48,10 +48,8 @@ runFile input = do
 
   let type_graph = getRight $ getGraph bound_ast 
   putStrLn $ "Type graph:\n" ++ printList type_graph
-  {-
-  let nocycles   = getRight $ runExcept (checkCycles type_graph)
+  let nocycles   = getRight $ checkCycles type_graph
   nocycles `seq` putStrLn $ "Type graph looks good"
-  -}
   let ty         = getRight $ typecheck bound_ast 
   putStrLn $ "Type: " ++ (show ty)
 

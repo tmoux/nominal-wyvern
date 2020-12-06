@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, ConstraintKinds #-}
 module TypeGraph where
 
 import Control.Monad.Except
@@ -11,6 +11,7 @@ import Syntax
 import PrettyPrint
 import TypeUtil
 import Debug.Trace
+import Typecheck (typecheckPath)
 
 --For clarity, PTypes are the nodes in the type graph
 --They are like base types, but all path types/type members are given "absolute paths",
@@ -30,8 +31,6 @@ instance Show PType where
 
 type PCtx = Map.Map PType TypeAnnot
 
-data A = A Int
-
 type TGMonad = WriterT [Edge] (ReaderT Context (ReaderT PCtx (Except String)))
 
 data Edge = Edge {
@@ -46,24 +45,27 @@ getPType b = do
   pt <- convert b
   ta <- lookupPType pt
   return (pt,ta)
-  where convert b = case b of
+  where convert :: BaseType -> TGMonad PType
+        convert b = case b of
           TopType      -> return PTop
           BotType      -> return PBot
           NamedType n  -> return (PVar n)
-          PathType p t -> undefined --TODO
+          PathType p t -> do
+            Type b' _ <- typecheckPath p
+            pt <- convert b'
+            return (PPath pt t)
 
 lookupPType :: PType -> TGMonad TypeAnnot
 lookupPType pt = do
-  --traceM ("looking up " ++ (show pt))
   pctx <- (lift.lift) ask
   case Map.lookup pt pctx of
     Just x  -> return x
     Nothing -> return Material
 --------------------------------------
-getPTypes :: [TopLevelDeclaration] -> Writer [(PType,TypeAnnot)] ()
-getPTypes = mapM_ f
+mapTAs :: [TopLevelDeclaration] -> Writer [(PType,TypeAnnot)] ()
+mapTAs = mapM_ f
   where f (NameDecl ta n _ decls) = do
-          tell [(PVar n,ta)] :: Writer [(PType,TypeAnnot)] ()
+          tell [(PVar n,ta)]
           mapM_ (g n) decls
         f (SubtypeDecl _ _) = return ()
         g n (TypeMemDecl ta t _ _) = tell [(PPath (PVar n) t,ta)]
@@ -74,40 +76,22 @@ getGraph prog@(Program decls expr) = runExcept (
                     runReaderT (
                       execWriterT (buildGraph prog)
                     ) (Context decls [])
-                  ) (Map.fromList (execWriter (getPTypes decls)))
+                  ) (Map.fromList (execWriter (mapTAs decls)))
                 )
 
 buildGraph :: Program -> TGMonad ()
 buildGraph (Program decls expr) = do
-  --pctx <- (lift.lift) ask
-  --traceM (show pctx)
   mapM_ buildGraphDecl decls
-
-buildGraphDecl :: TopLevelDeclaration -> TGMonad ()
-buildGraphDecl d = case d of
-  NameDecl ta n z decls ->
-    local (appendGamma [(z,makeNomType n)]) $ mapM_ (buildGraphMemDecl (PVar n)) decls
-  SubtypeDecl (Type n1 r1) n2 -> do
-    (n1',n1TA) <- getPType n1
-    (n2',n2TA) <- getPType n2
-    tell [Edge n2' [] n1']
-    mapM_ (recRefs n2') r1
-    --If n1 is a shape, n2 must be a shape
-    case (n1TA,n2TA) of
-      (Shape,Material) -> throwError $ printf "invalid shape usage: %s can only subtype named shapes, but %s is not a shape" (show n1) (show n2)
-      _ -> return ()
-    where recRefs n2' (RefineDecl _ _ (Type nr rr)) = do
-            (nr',_) <- getPType nr
-            tell [Edge n2' [] nr']
-            mapM_ (recRefs n2') rr
+  buildGraphExpr expr
 
 -- Material shape separation:
--- A shape is never used as part of a lower bound syntactically (i.e. after ≥ or =).
--- The upper bound of a shape is always a shape, and named shapes can only subtype named shapes.
--- Shapes cannot be refined in refinements.
+-- (1) A shape is never used as part of a lower bound syntactically (i.e. after ≥ or =).
+-- (2) The upper bound of a shape is always a shape, and named shapes can only subtype named shapes.
+-- (3) Shapes cannot be refined in refinements.
 
-checkShapesNotInRefs :: Type -> TGMonad ()
-checkShapesNotInRefs (Type _ rs) = mapM_ check rs
+--check condition (3), that no shapes appear in any refinements
+checkTy :: Type -> TGMonad ()
+checkTy (Type _ rs) = mapM_ check rs
   where check (RefineDecl _ _ (Type bt rt)) = do
           (bt',btTA) <- getPType bt
           case btTA of
@@ -115,30 +99,54 @@ checkShapesNotInRefs (Type _ rs) = mapM_ check rs
             Material -> return ()
         invalidShape shape = throwError $ printf "invalid shape usage: shape type %s used in refinement" (show shape)
 
+buildGraphDecl :: TopLevelDeclaration -> TGMonad ()
+buildGraphDecl d = case d of
+  NameDecl ta n z decls ->
+    local (appendGamma [(z,makeNomType n)]) $ mapM_ (buildGraphMemDecl (PVar n)) decls
+  SubtypeDecl t1@(Type n1 r1) n2 -> do
+    checkTy t1
+    (n1',n1TA) <- getPType n1
+    (n2',n2TA) <- getPType n2
+    tell [Edge n2' [] n1']
+    mapM_ (recRefs n2') r1
+    --If n1 is a shape, n2 must be a shape
+    case (n1TA,n2TA) of
+      (Shape,Material) -> throwError $ invalidShapeSubtype n1 n2
+      _ -> return ()
+    where recRefs n2' (RefineDecl _ _ (Type nr rr)) = do
+            (nr',_) <- getPType nr
+            tell [Edge n2' [] nr']
+            mapM_ (recRefs n2') rr
+          invalidShapeSubtype n1 n2 = printf "invalid shape usage: %s can only subtype named shapes, but %s is not a shape" (show n1) (show n2)
+
 buildGraphMemDecl :: PType -> MemberDeclaration -> TGMonad ()
 buildGraphMemDecl n d = case d of
   TypeMemDecl ta t bound t2@(Type bt rt) -> do
-    checkShapesNotInRefs t2
+    checkTy t2
     let nt = PPath n t
     (bt',btTA) <- getPType bt
     genEdges (bt',btTA) rt nt []
     --check if shape is used as lower bound
     case (bound,btTA) of
-      (EQQ,Shape) -> throwError $ printf "invalid shape usage: %s used as lower bound" (show bt)
-      (GEQ,Shape) -> throwError $ printf "invalid shape usage: %s used as lower bound" (show bt)
+      (EQQ,Shape) -> throwError $ invalidLB bt
+      (GEQ,Shape) -> throwError $ invalidLB bt
       _           -> return ()
     --If the type member is a shape, check that upper bound is a shape
     case (ta,bound,btTA) of
-      (Shape,LEQ,Material) -> throwError $ printf "invalid shape usage: %s must be upper bounded by a shape" (show t)
+      (Shape,LEQ,Material) -> throwError $ invalidShapeUB t
       _ -> return ()
-  ValDecl v ty -> return ()
-  DefDecl f args ty -> return ()
+    where invalidLB bt = printf "invalid shape usage: %s used as lower bound" (show bt)
+          invalidShapeUB t = printf "invalid shape usage: %s must be upper bounded by a shape" (show t)
+  ValDecl v ty -> checkTy ty
+  DefDecl f args ty -> do
+    mapM_ checkTy (map argType args)
+    checkTy ty
 
--------------------------------------
 buildGraphExpr :: Expr -> TGMonad ()
 buildGraphExpr e = do
-  return ()
+  return () --TODO
 
+---------------------------------------
 genEdges :: (PType,TypeAnnot) -> [Refinement] -> PType -> [(PType,TypeAnnot)] -> TGMonad ()
 genEdges (b,_) [] br ba = tell [Edge br ba b]
 genEdges (b,bTA) (RefineDecl _ _ (Type bt rt):rest) br ba = do
@@ -146,9 +154,10 @@ genEdges (b,bTA) (RefineDecl _ _ (Type bt rt):rest) br ba = do
   genEdges (b,bTA) rest br ba
   genEdges bt' rt br ((b,bTA):ba)
 
+--------------------------------------
 --naive cycle checking
-checkCycles :: [Edge] -> Except String ()
-checkCycles es = mapM_ (dfs es' []) vertices
+checkCycles :: [Edge] -> Either String ()
+checkCycles es = runExcept $ mapM_ (dfs es' []) vertices
   where vertices = foldr (\(Edge from _ to) vs -> [from,to] `union` vs) [] es
         es' = filter noshape es
         noshape (Edge _ ls _) = and (map (isMat.snd) ls)
