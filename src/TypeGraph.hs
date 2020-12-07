@@ -11,7 +11,7 @@ import Syntax
 import PrettyPrint
 import TypeUtil
 import Debug.Trace
-import Typecheck (typecheckPath)
+import Typecheck (typecheckPath, typecheckExpr)
 
 --For clarity, PTypes are the nodes in the type graph
 --They are like base types, but all path types/type members are given "absolute paths",
@@ -75,7 +75,7 @@ getGraph prog@(Program decls expr) = runExcept (
                   runReaderT (
                     runReaderT (
                       execWriterT (buildGraph prog)
-                    ) (Context decls [])
+                    ) (Context decls [] Off)
                   ) (Map.fromList (execWriter (mapTAs decls)))
                 )
 
@@ -143,9 +143,29 @@ buildGraphMemDecl n d = case d of
     checkTy ty
 
 buildGraphExpr :: Expr -> TGMonad ()
-buildGraphExpr e = do
-  return () --TODO
+buildGraphExpr e = case e of
+  PathExpr _ -> return ()
+  Call _ _ _ -> return ()
+  New ty z defns -> do
+    checkTy ty
+    local (appendGamma [(z,ty)]) $ mapM_ buildGraphDefns defns
+  Let x annot e1 e2 -> do
+    buildGraphExpr e1
+    xTy <- case annot of
+      Just ty -> return ty
+      Nothing -> local turnSubtypingOff $ typecheckExpr e1
+    local (appendGamma [(x,xTy)]) $ buildGraphExpr e2
+  TopLit -> return ()
+  UndefLit -> return ()
 
+buildGraphDefns :: MemberDefinition -> TGMonad ()
+buildGraphDefns d = case d of
+  TypeMemDefn _ ty -> checkTy ty
+  ValDefn _ ty _ -> checkTy ty
+  DefDefn _ args ty expr -> local (appendGamma (map argToTup args)) $ do
+    mapM_ checkTy (map argType args)
+    checkTy ty
+    buildGraphExpr expr
 ---------------------------------------
 genEdges :: (PType,TypeAnnot) -> [Refinement] -> PType -> [(PType,TypeAnnot)] -> TGMonad ()
 genEdges (b,_) [] br ba = tell [Edge br ba b]

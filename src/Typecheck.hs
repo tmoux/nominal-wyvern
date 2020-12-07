@@ -26,10 +26,13 @@ typecheckProgram (Program decls expr) = do
           split (SubtypeDecl _ _)  = False
 
 checkTLDecl :: TC m => TopLevelDeclaration -> m ()
-checkTLDecl (NameDecl _ _ z decls) = do
+checkTLDecl (NameDecl _ n z decls) = do
   let fields = getFields decls
       paths = map (\v -> Field (Var z) v) fields
       types = getTypes decls
+  --traceM ("fields = " ++ show fields)
+  --traceM ("paths = " ++ show paths)
+  --traceM ("types = " ++ show types)
   mapM_ (noReference paths) types
   where getFields [] = []
         getFields ((ValDecl v _):xs) = v:getFields xs
@@ -44,10 +47,11 @@ checkTLDecl (NameDecl _ _ z decls) = do
             _ -> return ()
           mapM_ (notInRefine path) rs
         notInRefine path (RefineDecl _ _ ty) = notInType ty path
-        notInPath (Var _) path = return ()
-        notInPath (Field p n) path
-          | p == path = throwError (printf "error when checking name well-formedness: sibling field %s found in path %s" (show path) (show p))
-          | otherwise = notInPath p path 
+        notInPath p path
+          | p == path = throwError (printf "error when checking name well-formedness: sibling field %s in declaration of named type %s" (show path) (show n))
+          | otherwise = case p of
+              Var _ -> return ()
+              Field p' _ -> notInPath p' path
 checkTLDecl (SubtypeDecl t1 n2) = do
   (x1,decls1) <- unfoldExpanded t1
   (x2,decls2) <- unfoldExpanded (Type n2 [])
@@ -145,9 +149,15 @@ typecheckExpr e = case e of
         where cantFindDef    = "failed to find method name " ++ meth
               wrongLength    = printf "calling %s: wrong # of arguments" meth
               callNotSubtype esTys argsTypeSubbed = (printf "calling %s: subtype check failed when calling method, %s not subtypes of %s" meth (show esTys) (show argsTypeSubbed))
-    Let x e1 e2 -> do
+    Let x annot e1 e2 -> do
       t1 <- typecheckExpr e1
-      local (appendGamma [(x,t1)]) $ typecheckExpr e2
+      xTy <- case annot of
+        Just ty -> do
+          isSubtype t1 ty >>= assert (letmsg t1 ty)
+          return ty
+        Nothing -> return t1
+      local (appendGamma [(x,xTy)]) $ typecheckExpr e2
+      where letmsg t1 ty = printf "let expr: var %s has type %s, but annotation has type %s" (show x) (show t1) (show ty)
     TopLit   -> return theTop
     UndefLit -> return theBot
 
@@ -189,8 +199,15 @@ equalRefinement (RefineDecl t1 bound1 ty1) (RefineDecl t2 bound2 ty2)
   = (return $ t1 == t2 && bound1 == bound2) &&^ equalType ty1 ty2
 
 --subtyping
+guardSubtype :: TC m => m Bool -> m Bool
+guardSubtype f = do
+  ctx <- ask
+  case (isCheck ctx) of
+    On -> f
+    Off -> return True
+
 isSubtype :: TC m => Type -> Type -> m Bool
-isSubtype t1@(Type b1 r1) t2@(Type b2 r2) =  do
+isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = guardSubtype $ do
   --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
   if eqBase then checkPerm isSubtypeRef r1 r2
@@ -243,8 +260,9 @@ isSubtypeRef a b = isSubtypeMemDecl (refToDecl a) (refToDecl b)
 isStructSubtype :: TC m => [MemberDeclaration] -> [MemberDeclaration] -> m Bool
 isStructSubtype as bs = checkPerm isSubtypeMemDecl as bs
 
+{-trace (show a ++ " <: " ++ show b) $-}
 isSubtypeMemDecl :: TC m => MemberDeclaration -> MemberDeclaration -> m Bool
-isSubtypeMemDecl a b = {-trace (show a ++ " <: " ++ show b) $-} case (a,b) of
+isSubtypeMemDecl a b = guardSubtype $ case (a,b) of
   (TypeMemDecl _ t1 bound1 ty1,TypeMemDecl _ t2 bound2 ty2)
     | t1 == t2 -> case (bound1,bound2) of
         (EQQ,EQQ) -> checkCov &&^ checkContra --checkEq?

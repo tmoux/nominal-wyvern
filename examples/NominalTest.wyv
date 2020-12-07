@@ -1,0 +1,19 @@
+name A {z => }
+name B {z => }
+name C {z => }
+subtype C <: B
+subtype B <: A
+
+name N1 {z => type T <= Top}
+name N2 {z => type T <= A}
+name N3 {z => type T <= A}
+subtype N1 {type T <= B} <: N2
+
+let q = assert A <: Top in
+let q1 = assertNot N1 {type T <= B} </: N2
+let q1 = assertNot N1 {type T <= B} </: N2
+let q1 = assertNot N1 {type T <= B} </: N2
+let N1A : N1 {type T <= B} = new N1 {type T <= B} {z =>
+  type T <= B
+} in
+Top

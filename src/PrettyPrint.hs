@@ -65,7 +65,8 @@ instance Show Expr where
   show (New ty z decls) = printf "new %s {%s =>\n%s\n}" (show ty) (show z) (indent $ showSep "\n" decls)
   show (Call path meth args) = printf "%s.%s(%s)" (show path) meth (showSep ", " args)
   show TopLit   = "Top"
-  show (Let x e1 e2) = printf "let %s = %s\nin %s" (show x) (show e1) (show e2)
+  show (Let x (Just ty) e1 e2) = printf "let %s : %s = %s\nin %s" (show x) (show ty) (show e1) (show e2)
+  show (Let x Nothing e1 e2) = printf "let %s = %s\nin %s" (show x) (show e1) (show e2)
   show UndefLit = "undefined"
 
 instance Show Bound where

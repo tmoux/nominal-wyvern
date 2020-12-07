@@ -7,13 +7,7 @@ name B {z =>
 }
 subtype B <: A
 
-/*
-val bad : A {type T >= B {type S = Int}} = new B {type S = Int} {this =>
-  type S = Int
-  type T = A {type T >= B {type S = B {type S = this.S}}}
-}
-*/
-let bad = new B {type S = Int} {this =>
+let bad : A {type T >= B {type S = Int}} = new B {type S = Int} {this =>
   type S = Int
   type T = A {type T >= B {type S = B {type S = this.S}}}
 }

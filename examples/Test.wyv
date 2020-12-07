@@ -1,0 +1,9 @@
+name B {z =>
+  type T <= A
+}
+name A {z =>
+  val b : B
+  type T <= B
+}
+
+0

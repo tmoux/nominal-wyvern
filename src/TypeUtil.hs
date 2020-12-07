@@ -14,16 +14,19 @@ import Data.Functor.Identity
 instance MonadFail Data.Functor.Identity.Identity where
   fail = error "monad pattern match fail"
 
+data CheckSubtype = On | Off
 data Context = Context
   { toplevel :: [TopLevelDeclaration]
   , gamma    :: [(Binding,Type)]
+  , isCheck  :: CheckSubtype
   }
-emptyCtx = Context [] []
+emptyCtx = Context [] [] On
 appendTopLevel :: [TopLevelDeclaration] -> Context -> Context
-appendTopLevel ds (Context t g) = Context (ds++t) g
+appendTopLevel ds (Context t g c) = Context (ds++t) g c
 appendGamma :: [(Binding,Type)] -> Context -> Context
-appendGamma ds (Context t g) = Context t (ds++g)
---type TCMonad = ReaderT Context (Except String)
+appendGamma ds (Context t g c) = Context t (ds++g) c
+turnSubtypingOff :: Context -> Context
+turnSubtypingOff (Context t g _) = Context t g Off
 type TC m = (MonadReader Context m, MonadError String m, MonadFail m)
 
 assert :: TC m => String -> Bool -> m ()

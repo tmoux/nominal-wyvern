@@ -48,7 +48,7 @@ data Expr
   = PathExpr Path
   | Call Path Name [Path]
   | New Type Binding [MemberDefinition]
-  | Let Binding Expr Expr
+  | Let Binding (Maybe Type) Expr Expr
   | TopLit
   | UndefLit
 

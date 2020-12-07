@@ -126,6 +126,12 @@ bindRefinement (Raw.RefineDecl t bound ty) = do
   ty' <- bindType ty
   return $ RefineDecl t bound' ty'
 
+bindMaybeType :: Maybe Raw.Type -> BindMonad (Maybe Type)
+bindMaybeType (Just ty) = do
+  ty' <- bindType ty
+  return (Just ty')
+bindMaybeType Nothing = return Nothing
+
 bindType :: Raw.Type -> BindMonad Type
 bindType (Raw.Type b rs) = do
   b' <- bindBaseType b
@@ -157,11 +163,12 @@ bindExpr e = case e of
     b      <- newBinding name
     defns' <- local ((BindVal b):) $ mapM bindMemberDefn defns
     return $ New ty' b defns'
-  Raw.Let x e1 e2 -> do
+  Raw.Let x annot e1 e2 -> do
     x' <- newBinding x
     e1' <- bindExpr e1
     e2' <- local (BindVal x':) $ bindExpr e2
-    return $ Let x' e1' e2'
+    annot' <- bindMaybeType annot
+    return $ Let x' annot' e1' e2'
   Raw.IntLit i -> do
     intTy <- bindType (Raw.Type (Raw.NamedType "Int") [])
     z <- newBinding "z"

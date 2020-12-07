@@ -3,7 +3,7 @@
     val v : z.T
     def f (x:A, y:A) : x.T
 }
-let a = new A {this =>
+let a : A = new A {this =>
 	type T = Top
 	val v : this.T = Top
 	def f(x:A, y:A) : x.T {

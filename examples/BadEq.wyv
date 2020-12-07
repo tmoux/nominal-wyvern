@@ -1,20 +1,20 @@
-type Eq {z =>
+name Eq {z =>
   type E >= Bot
 }
-type List {z =>
-  type T <= Unit
+name List {z =>
+  type T <= Top
   type E = List {type T <= Eq {type E >= z.T}}
 }
-subtype List extends Eq
-type Tree {z =>
+subtype List <: Eq
+name Tree {z =>
   type T = Tree
   type E = List {type T <= Eq {type E >= z.T}}
 }
-subtype Tree extends List
+subtype Tree <: List
 
 //BAD
-val bad : Eq {type E >= Tree} = new Tree {this =>
+let bad : Eq {type E >= Tree} = new Tree {this =>
   type T = Tree
   type E = List {type T <= Eq {type E >= this.T}}
 }
-0
+in bad

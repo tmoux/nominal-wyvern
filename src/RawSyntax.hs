@@ -47,7 +47,7 @@ data Expr
   = PathExpr Path
   | Call Path Name [Path]
   | New Type Name [MemberDefinition]
-  | Let Name Expr Expr
+  | Let Name (Maybe Type) Expr Expr
   | IntLit Int
   | TopLit
   | UndefLit

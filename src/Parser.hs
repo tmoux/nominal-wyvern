@@ -125,10 +125,12 @@ primary = PathExpr <$> path
                   <*  resOp "}"
 letexpr = Let <$  reserved "let"
               <*> identifier
+              <*> optTyAnnot
               <*  resOp "="
               <*> expr
               <*  reserved "in"
               <*> expr
+optTyAnnot = optionMaybe (colon *> ty)
 
 --types
 ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))
