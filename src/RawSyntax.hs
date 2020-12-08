@@ -51,6 +51,7 @@ data Expr
   | IntLit Int
   | TopLit
   | UndefLit
+  | Assert Bool Type Type
   deriving (Show)
 
 data Bound = LEQ | EQQ | GEQ

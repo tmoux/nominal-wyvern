@@ -7,11 +7,7 @@ name B {z =>
 }
 subtype B <: A
 
-let bad : A {type T >= B {type S = Int}} = new B {type S = Int} {this =>
-  type S = Int
-  type T = A {type T >= B {type S = B {type S = this.S}}}
-}
-in bad
+assertNot B {type S = Int} <: A {type T >= B {type S = Int}}
 
 /*
 B {type S = Int} <: A {type T >= B {type S = Int}}

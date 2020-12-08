@@ -7,7 +7,7 @@ import Control.Monad.Extra
 import Data.List (find, partition)
 import Syntax
 import TypeUtil
-import PrettyPrint
+import PrettyPrint()
 import Text.Printf
 import Debug.Trace
 
@@ -56,8 +56,8 @@ checkTLDecl (SubtypeDecl t1 n2) = do
   (x1,decls1) <- unfoldExpanded t1
   (x2,decls2) <- unfoldExpanded (Type n2 [])
   local (appendGamma [(x1,t1)]) $
-    isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= msg
-  where msg = assert (printf "invalid subtype decl: %s not a subtype of %s" (show t1) (show n2))
+    isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= assertSub msg
+  where msg = printf "invalid subtype decl: %s not a subtype of %s" (show t1) (show n2)
 
 typeNB :: TC m => Type -> m ()
 typeNB (Type base rs) = case base of
@@ -86,16 +86,16 @@ newTypeWF ty x defns = do
       new_decls = sig defns
       old_decls = subst (Var x) x_n (map refToDecl rs ++ decls_n)
   ap_self $ isStructSubtype new_decls old_decls
-    >>= assert (printf "\n%s <:\n%s" (show new_decls) (show old_decls))
+    >>= assertSub (printf "new expr not struct subtype:\n%s <:\n%s" (show new_decls) (show old_decls))
   let checkDefn (TypeMemDefn _ _) = return ()
       checkDefn d@(DefDefn f args tau_r expr) = ap_self $ do
         let args' = map argToTup args
         local (appendGamma args') $ do
           tau_r' <- typecheckExpr expr
-          isSubtype tau_r' tau_r >>= assert (printf "defn %s: %s is not a subtype of return type %s" (show f) (show tau_r') (show tau_r))
+          isSubtype tau_r' tau_r >>= assertSub (printf "defn %s: %s is not a subtype of return type %s" (show f) (show tau_r') (show tau_r))
       checkDefn (ValDefn v tau_v expr) = do
         tau_v' <- typecheckExpr expr 
-        ap_self $ isSubtype tau_v' tau_v >>= assert (printf "val %s: %s is not a subtype of annotation %s" v (show tau_v') (show tau_v))
+        ap_self $ isSubtype tau_v' tau_v >>= assertSub (printf "val %s: %s is not a subtype of annotation %s" v (show tau_v') (show tau_v))
   mapM_ checkDefn defns
 
 unfold :: TC m => Type -> m (Binding,[MemberDeclaration])
@@ -128,38 +128,46 @@ typeExpand tau@(Type base rs) = case base of
 
 typecheckExpr :: TC m => Expr -> m Type
 typecheckExpr e = case e of
-    PathExpr p -> typecheckPath p
-    New ty z rs -> do
-      newTypeWF ty z rs
-      return ty
-    Call p meth es -> do
-      pty <- typecheckPath p
-      (z,decls) <- unfold pty
-      let pred (DefDecl b _ _) = b == meth
-          pred _ = False
-      DefDecl m args retTy <- lookupMemberDecls pred cantFindDef decls
-      --subfunc creates the correct type by subbing in the arguments and path p
-      let subfunc ty = foldr (\(Arg x _,exp) -> subst exp x) (subst p z ty) (zip args es)
-      let argsTypeSubbed = map subfunc (map (\(Arg _ ty) -> ty) args) --correct arg types
-      esTys <- mapM typecheckPath es --these are the calling types
-      --subtype check
-      (return (length esTys == length argsTypeSubbed)) >>= assert wrongLength
-      checkPairwise isSubtype esTys argsTypeSubbed >>= assert (callNotSubtype esTys argsTypeSubbed)
-      return $ subfunc retTy --subbed return type
-        where cantFindDef    = "failed to find method name " ++ meth
-              wrongLength    = printf "calling %s: wrong # of arguments" meth
-              callNotSubtype esTys argsTypeSubbed = (printf "calling %s: subtype check failed when calling method, %s not subtypes of %s" meth (show esTys) (show argsTypeSubbed))
-    Let x annot e1 e2 -> do
-      t1 <- typecheckExpr e1
-      xTy <- case annot of
-        Just ty -> do
-          isSubtype t1 ty >>= assert (letmsg t1 ty)
-          return ty
-        Nothing -> return t1
-      local (appendGamma [(x,xTy)]) $ typecheckExpr e2
-      where letmsg t1 ty = printf "let expr: var %s has type %s, but annotation has type %s" (show x) (show t1) (show ty)
-    TopLit   -> return theTop
-    UndefLit -> return theBot
+  PathExpr p -> typecheckPath p
+  New ty z rs -> do
+    newTypeWF ty z rs
+    return ty
+  Call p meth es -> do
+    pty <- typecheckPath p
+    (z,decls) <- unfold pty
+    let pred (DefDecl b _ _) = b == meth
+        pred _ = False
+    DefDecl m args retTy <- lookupMemberDecls pred cantFindDef decls
+    --subfunc creates the correct type by subbing in the arguments and path p
+    let subfunc ty = foldr (\(Arg x _,exp) -> subst exp x) (subst p z ty) (zip args es)
+    let argsTypeSubbed = map subfunc (map (\(Arg _ ty) -> ty) args) --correct arg types
+    esTys <- mapM typecheckPath es --these are the calling types
+    --subtype check
+    (return (length esTys == length argsTypeSubbed)) >>= assert wrongLength
+    checkPairwise isSubtype esTys argsTypeSubbed >>= assertSub (callNotSubtype esTys argsTypeSubbed)
+    return $ subfunc retTy --subbed return type
+      where cantFindDef    = "failed to find method name " ++ meth
+            wrongLength    = printf "calling %s: wrong # of arguments" meth
+            callNotSubtype esTys argsTypeSubbed = (printf "calling %s: subtype check failed when calling method, %s not subtypes of %s" meth (show esTys) (show argsTypeSubbed))
+  Let x annot e1 e2 -> do
+    t1 <- typecheckExpr e1
+    xTy <- case annot of
+      Just ty -> do
+        isSubtype t1 ty >>= assertSub (letmsg t1 ty)
+        return ty
+      Nothing -> return t1
+    local (appendGamma [(x,xTy)]) $ typecheckExpr e2
+    where letmsg t1 ty = printf "let expr: var %s has type %s, but annotation has type %s" (show x) (show t1) (show ty)
+  TopLit   -> return theTop
+  UndefLit -> return theBot
+  Assert True t1 t2 -> do
+    isSubtype t1 t2 
+      >>= assertSub (printf "assertion '%s <: %s' failed" (show t1) (show t2))
+    return theTop
+  Assert False t1 t2 -> do
+    liftM not (isSubtype t1 t2) 
+      >>= assertSub (printf "assertion: '%s </: %s' failed" (show t1) (show t2))
+    return theTop
 
 typecheckPath :: TC m => Path -> m Type
 typecheckPath p = case p of
@@ -198,17 +206,9 @@ equalRefinement :: TC m => Refinement -> Refinement -> m Bool
 equalRefinement (RefineDecl t1 bound1 ty1) (RefineDecl t2 bound2 ty2)
   = (return $ t1 == t2 && bound1 == bound2) &&^ equalType ty1 ty2
 
---subtyping
-guardSubtype :: TC m => m Bool -> m Bool
-guardSubtype f = do
-  ctx <- ask
-  case (isCheck ctx) of
-    On -> f
-    Off -> return True
-
 isSubtype :: TC m => Type -> Type -> m Bool
-isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = guardSubtype $ do
-  --traceM (show t1 ++ " <: " ++ show t2)
+isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = do
+  traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
   if eqBase then checkPerm isSubtypeRef r1 r2
             else s_Top ||^ s_Bot ||^ s_Name ||^ s_Upper ||^ s_Lower
@@ -262,7 +262,7 @@ isStructSubtype as bs = checkPerm isSubtypeMemDecl as bs
 
 {-trace (show a ++ " <: " ++ show b) $-}
 isSubtypeMemDecl :: TC m => MemberDeclaration -> MemberDeclaration -> m Bool
-isSubtypeMemDecl a b = guardSubtype $ case (a,b) of
+isSubtypeMemDecl a b = case (a,b) of
   (TypeMemDecl _ t1 bound1 ty1,TypeMemDecl _ t2 bound2 ty2)
     | t1 == t2 -> case (bound1,bound2) of
         (EQQ,EQQ) -> checkCov &&^ checkContra --checkEq?

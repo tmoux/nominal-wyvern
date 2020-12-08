@@ -11,7 +11,7 @@ languageDef =
              , Token.commentLine    = "//"
              , Token.identStart     = letter
              , Token.identLetter    = alphaNum <|> char '_'
-             , Token.reservedNames  = [ "name", "val", "def", "type", "new", "subtype", "let", "in", "Top", "Bot", "undefined", "@shape"]
+             , Token.reservedNames  = [ "name", "val", "def", "type", "new", "subtype", "let", "in", "Top", "Bot", "undefined", "@shape", "assert", "assertNot"]
             , Token.reservedOpNames = [ "=", "<=", "=", ">=", "+", ".", ":", ",", "{", "}", "=>", "<:"]
     }
               
@@ -106,6 +106,8 @@ pathNotVar = do
 expr = try call
    <|> try primary
    <|> try letexpr
+   <|> try assert
+   <|> try assertNot
 
 call = (\(p,t) args -> Call p t args) 
    <$> pathNotVar
@@ -131,6 +133,16 @@ letexpr = Let <$  reserved "let"
               <*  reserved "in"
               <*> expr
 optTyAnnot = optionMaybe (colon *> ty)
+
+assert = Assert True <$  reserved "assert"
+                     <*> ty
+                     <*  resOp "<:"
+                     <*> ty
+
+assertNot = Assert False <$  reserved "assertNot"
+                         <*> ty
+                         <*  resOp "<:"
+                         <*> ty
 
 --types
 ty = try (Type <$> basetype <*> braces (refine `sepBy` comma))

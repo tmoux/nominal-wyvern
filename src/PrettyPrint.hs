@@ -68,6 +68,8 @@ instance Show Expr where
   show (Let x (Just ty) e1 e2) = printf "let %s : %s = %s\nin %s" (show x) (show ty) (show e1) (show e2)
   show (Let x Nothing e1 e2) = printf "let %s = %s\nin %s" (show x) (show e1) (show e2)
   show UndefLit = "undefined"
+  show (Assert True t1 t2) = printf "assert %s <: %s" (show t1) (show t2)
+  show (Assert False t1 t2) = printf "assertNot %s <: %s" (show t1) (show t2)
 
 instance Show Bound where
   show LEQ = "<="

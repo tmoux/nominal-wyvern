@@ -1,25 +1,25 @@
-type A {z =>
-    type T <= Unit
+name A {z =>
+    type T <= Top
     val a:z.T
 }
-type B {z =>
-    type S <= Unit
+name B {z =>
+    type S <= Top
     val b:A
 }
-type C {z =>
-    type R <= Unit
+name C {z =>
+    type R <= Top
     val c:B
 }
-val aa : A = new A {this =>
-    type T = Unit
-    val a : Unit = Unit
-}
-val bb : B = new B {this =>
-    type S = Unit
+let aa : A = new A {this =>
+    type T = Top
+    val a : Top = Top
+} in
+let bb : B = new B {this =>
+    type S = Top
     val b : A = aa
-}
-val cc : C = new C {this =>
-    type R = Unit
+} in
+let cc : C = new C {this =>
+    type R = Top
     val c : B = bb
-}
+} in
 cc.c.b.a

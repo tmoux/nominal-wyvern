@@ -1,62 +1,73 @@
-type IntPair {z =>
+name IntPair {z =>
   val l:Int
   val r:Int
 }
-@shape type Moveable {m =>
-  type T <= Unit
+@shape name Moveable {m =>
+  type T <= Top
   def move(amt:IntPair):m.T
 }
-type Point {p =>
+name Point {p =>
   type T = Point
   val x:Int
   val y:Int
   def move(amt:IntPair):p.T
 }
-subtype Point extends Moveable
+subtype Point <: Moveable
 
-type FMoveable {x =>
+name PointCons {pc =>
+  def create(pos:IntPair):Point
+}
+
+name FMoveable {x =>
   type T <= Moveable {type T <= x.T}
   val obj:x.T
 }
-type Utils {z =>
+name Utils {z =>
   def translate(arg:FMoveable):arg.T
 }
-val utils : Utils = new Utils {this =>
+
+name Vector2D {v =>
+  type T <= Vector2D
+  val x : Int
+  val y : Int
+  def move(amount:IntPair):v.T
+}
+subtype Vector2D <: Moveable
+
+let utils = new Utils {this =>
   def translate(arg:FMoveable):arg.T {
-    val p : IntPair = new IntPair {z =>
+    let p = new IntPair {z =>
       val l : Int = 1
       val r : Int = 1
-    }
+    } in
     arg.obj.move(p)
   }
-}
-type PointCons {pc =>
-  def create(pos:IntPair):Point
-}
-val pointCons : PointCons = new PointCons {pc =>
+} in
+let pointCons = new PointCons {pc =>
   def create(pos:IntPair):Point {
     new Point {p =>
       type T = Point
       val x : Int = pos.l
       val y : Int = pos.r
       def move(amt:IntPair):Point {
-        val newp : IntPair = new IntPair {z =>
-          val l : Int = p.x + amt.l
-          val r : Int = p.y + amt.r
-        }
+        let newp = new IntPair {z =>
+          val l : Int = p.x.plus(amt.l)
+          val r : Int = p.y.plus(amt.r)
+        } in
         pc.create(newp)
       }
     }
   }
-}
+} in
 
-val zz : IntPair = new IntPair {z =>
+let zz = new IntPair {z =>
   val l : Int = 0
   val r : Int = 0
-}
-val origin : Point = pointCons.create(zz)
-val fm : FMoveable = new FMoveable {xx =>
-  type T = Point
+} in
+
+let origin = pointCons.create(zz) in
+let fm = new FMoveable {xx =>
+  type T = Point //{type T = Point}
   val obj : Point = origin
-}
+} in
 utils.translate(fm)

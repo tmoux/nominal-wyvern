@@ -33,6 +33,13 @@ assert :: TC m => String -> Bool -> m ()
 assert _   True  = return ()
 assert err False = throwError err
 
+assertSub :: TC m => String -> Bool -> m ()
+assertSub err b = do
+  ctx <- ask
+  case (isCheck ctx) of
+    On -> assert err b
+    Off -> return ()
+
 lookupMemberDecls :: TC m => (MemberDeclaration -> Bool) -> String -> [MemberDeclaration] -> m MemberDeclaration
 lookupMemberDecls pred msg list =
   case find pred list of
@@ -107,10 +114,6 @@ checkAll = allM
 checkPairwise :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
 checkPairwise f as bs = allM (uncurry f) (zip as bs)
 
-m_and :: Monad m => [Bool] -> m Bool
-m_and x = return $ and x
-m_or  :: Monad m => [Bool] -> m Bool
-m_or  x = return $ or x
 --check that for all b in bs, there exists an a such that (f a b) is true
 checkPerm :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
 checkPerm f as bs = allM (\b -> anyM (flip f b) as) bs

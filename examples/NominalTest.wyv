@@ -9,11 +9,9 @@ name N2 {z => type T <= A}
 name N3 {z => type T <= A}
 subtype N1 {type T <= B} <: N2
 
-let q = assert A <: Top in
-let q1 = assertNot N1 {type T <= B} </: N2
-let q1 = assertNot N1 {type T <= B} </: N2
-let q1 = assertNot N1 {type T <= B} </: N2
-let N1A : N1 {type T <= B} = new N1 {type T <= B} {z =>
-  type T <= B
-} in
+let q = assert A <: Top 
+in let q1 = assertNot N1 {type T <= B} <: N3 //false, no path in graph
+in let q2 = assertNot N1 {type T <= A} <: N2 //false, A is not a subtype of B
+in let q3 = assertNot N1 {type T <= B} <: N2 {type T <= C} //false, r_2 is too specific
+in
 Top

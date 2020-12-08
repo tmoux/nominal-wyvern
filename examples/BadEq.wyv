@@ -12,9 +12,4 @@ name Tree {z =>
 }
 subtype Tree <: List
 
-//BAD
-let bad : Eq {type E >= Tree} = new Tree {this =>
-  type T = Tree
-  type E = List {type T <= Eq {type E >= this.T}}
-}
-in bad
+assertNot Tree <: Eq {type E >= Tree}

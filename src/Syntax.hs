@@ -51,6 +51,7 @@ data Expr
   | Let Binding (Maybe Type) Expr Expr
   | TopLit
   | UndefLit
+  | Assert Bool Type Type
 
 data Bound = LEQ | EQQ | GEQ
   deriving (Eq)

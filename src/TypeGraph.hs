@@ -8,7 +8,7 @@ import qualified Data.Map.Strict as Map
 import Data.List (union)
 import Text.Printf
 import Syntax
-import PrettyPrint
+import PrettyPrint()
 import TypeUtil
 import Debug.Trace
 import Typecheck (typecheckPath, typecheckExpr)
@@ -157,6 +157,9 @@ buildGraphExpr e = case e of
     local (appendGamma [(x,xTy)]) $ buildGraphExpr e2
   TopLit -> return ()
   UndefLit -> return ()
+  Assert _ t1 t2 -> do
+    checkTy t1
+    checkTy t2
 
 buildGraphDefns :: MemberDefinition -> TGMonad ()
 buildGraphDefns d = case d of

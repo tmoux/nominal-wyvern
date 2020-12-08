@@ -127,9 +127,7 @@ bindRefinement (Raw.RefineDecl t bound ty) = do
   return $ RefineDecl t bound' ty'
 
 bindMaybeType :: Maybe Raw.Type -> BindMonad (Maybe Type)
-bindMaybeType (Just ty) = do
-  ty' <- bindType ty
-  return (Just ty')
+bindMaybeType (Just ty) = liftM Just (bindType ty)
 bindMaybeType Nothing = return Nothing
 
 bindType :: Raw.Type -> BindMonad Type
@@ -177,6 +175,10 @@ bindExpr e = case e of
     return $ New intTy z defns
   Raw.TopLit -> return TopLit  
   Raw.UndefLit -> return UndefLit
+  Raw.Assert b t1 t2 -> do
+    t1' <- bindType t1
+    t2' <- bindType t2
+    return $ Assert b t1' t2'
 
 bindPath :: Raw.Path -> BindMonad Path
 bindPath p = case p of

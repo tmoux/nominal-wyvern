@@ -1,16 +1,12 @@
-type Pair {z =>
-  type S <= Unit
-  type T <= Unit
+name Pair {z =>
+  type S <= Top
+  type T <= Top
 }
-type IPair {z =>
+name IPair {z =>
   type S = Int
-  type T <= Unit
+  type T <= Top
 }
-subtype IPair extends Pair
+subtype IPair <: Pair
 
 //we expect this is a valid subtype?
-val test : Pair {type S = Int, type T = Int} = new IPair {type T = Int} {z =>
-  type S = Int
-  type T = Int
-}
-test
+assertNot IPair {type T = Int} <: Pair {type S = Int, type T = Int}

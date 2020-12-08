@@ -8,8 +8,8 @@ import System.Console.CmdArgs
 import System.IO
 import Parser (parseFile)
 import Binding (bind)
-import PrettyPrint
-import TypeGraph
+import PrettyPrint()
+import TypeGraph(getGraph,checkCycles)
 import Typecheck (typecheck)
 
 data Args = Args { input :: FilePath
