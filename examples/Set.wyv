@@ -1,17 +1,17 @@
-type ISet {s =>
+name ISet {s =>
   def isEmpty():Int
   def contains(i:Int):Int
   def insert(i:Int):ISet
   def union(s:ISet):ISet
 }
 
-type SET_CONS {c =>
+name SET_CONS {c =>
   def Empty():ISet
   def Insert(s:ISet,n:Int):ISet
   def Union(s1:ISet,s2:ISet):ISet
 }
 
-val Set : SET_CONS = new SET_CONS {c =>
+let Set = new SET_CONS {c =>
   def Empty():ISet {
     new ISet {z =>
       def isEmpty():Int { 1 }
@@ -36,10 +36,9 @@ val Set : SET_CONS = new SET_CONS {c =>
       def union(s:ISet):ISet { c.Union(z,s) }
     }
   }
-}
+} in
 
-val one : Int = 1
-val s1 : ISet = Set.Empty()
-val s2 : ISet = Set.Insert(s1,one)
+let one = 1 in
+let s1 = Set.Empty() in
+let s2 = Set.Insert(s1,one) in
 s2
-

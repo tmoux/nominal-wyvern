@@ -208,7 +208,7 @@ equalRefinement (RefineDecl t1 bound1 ty1) (RefineDecl t2 bound2 ty2)
 
 isSubtype :: TC m => Type -> Type -> m Bool
 isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = do
-  traceM (show t1 ++ " <: " ++ show t2)
+  --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
   if eqBase then checkPerm isSubtypeRef r1 r2
             else s_Top ||^ s_Bot ||^ s_Name ||^ s_Upper ||^ s_Lower
