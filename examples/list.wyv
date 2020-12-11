@@ -1,74 +1,80 @@
-@shape type Monoid {z =>
+@shape name Monoid {z =>
   type T >= Bot
   val id : z.T
   def op(a:z.T, b:z.T):z.T
 }
 
-type List {z =>
-  type T <= Unit
+name List {z =>
+  type T <= Top
   def foldr(m:Monoid {type T >= z.T}):m.T
 }
 
-type Nil {z =>
-  type T <= Unit
+name Nil {z =>
+  type T <= Top
   def foldr(m:Monoid {type T >= z.T}):m.T
 }
-subtype Nil extends List
+subtype Nil <: List
 
-type Cons {z =>
-  type T <= Unit
+name Cons {z =>
+  type T <= Top
   def foldr(m:Monoid {type T >= z.T}):m.T
   val head:z.T
   val tail:List {type T <= z.T}
 }
-subtype Cons extends List
+subtype Cons <: List
 
-type Param {z =>
-  type A <= Unit
+name Param {z =>
+  type A <= Top
 }
 
-def makeNil(a:Param):List {type T <= a.A} {
-  new Nil {type T <= a.A} {z =>
-    type T = a.A
-    def foldr(m:Monoid {type T >= z.T}):m.T {
-      m.id
+name Utils {z =>
+  def makeNil(a:Param):List {type T <= a.A}
+  def makeCons(a:Param, x:a.A, xs:List {type T <= a.A}):Cons {type T <= a.A}
+}
+
+let utils = new Utils {z =>
+  def makeNil(a:Param):List {type T <= a.A} {
+    new Nil {type T <= a.A} {z =>
+      type T = a.A
+      def foldr(m:Monoid {type T >= z.T}):m.T {
+        m.id
+      }
     }
   }
-}
-def makeCons(a:Param, x:a.A, xs:List {type T <= a.A}):Cons {type T <= a.A} {
-  new Cons {type T <= a.A} {z =>
-    type T = a.A
-    def foldr(m:Monoid {type T >= z.T}):m.T {
-      val tailVal : m.T = z.tail.foldr(m)
-      val ret : m.T = m.op(z.head,tailVal)
-      ret
+  def makeCons(a:Param, x:a.A, xs:List {type T <= a.A}):Cons {type T <= a.A} {
+    new Cons {type T <= a.A} {z =>
+      type T = a.A
+      def foldr(m:Monoid {type T >= z.T}):m.T {
+        let tailVal : m.T = z.tail.foldr(m) in
+        m.op(z.head,tailVal)
+      }
+      val head : a.A = x
+      val tail : List {type T <= a.A} = xs
     }
-    val head : a.A = x
-    val tail : List {type T <= a.A} = xs
   }
-}
+} in
 
-val IntP : Param {type A = Int} = new Param {type A = Int} {this =>
+let IntP = new Param {type A = Int} {this =>
   type A = Int
-}
-val Sum : Monoid {type T = Int} = new Monoid {type T = Int} {z =>
+} in
+let Sum = new Monoid {type T = Int} {z =>
   type T = Int
   val id : Int = 0
   def op(a:z.T, b:z.T):z.T {
-    a+b
+    a.plus(b)
   }
-}
-val UnitM : Monoid {type T = Unit} = new Monoid {type T = Unit} {z =>
-  type T = Unit
-  val id : Unit = Unit
+} in
+let TopM = new Monoid {type T = Top} {z =>
+  type T = Top
+  val id : Top = Top
   def op(a:z.T, b:z.T):z.T {
     a
   }
-}
+} in
 
-val two : Int = 2
-val intNil : List {type T <= Int} = makeNil(IntP)
-val l1 : List {type T <= Int} = makeCons(IntP,two,intNil)
-val l2 : List {type T <= Int} = makeCons(IntP,two,intNil)
-//l2.foldr(Sum)
-l2.foldr(UnitM) //supertypes allowed
+let two = 2 in
+let intNil : List {type T <= Int} = utils.makeNil(IntP) in
+let l1 : List {type T <= Int} = utils.makeCons(IntP,two,intNil) in
+let l2 : List {type T <= Int} = utils.makeCons(IntP,two,intNil) in
+l2.foldr(Sum)
+//l2.foldr(TopM) //supertypes allowed

@@ -138,7 +138,7 @@ buildGraphMemDecl n d = case d of
     where invalidLB bt = printf "invalid shape usage: %s used as lower bound" (show bt)
           invalidShapeUB t = printf "invalid shape usage: %s must be upper bounded by a shape" (show t)
   ValDecl v ty -> checkTy ty
-  DefDecl f args ty -> do
+  DefDecl f args ty -> local (appendGamma (map argToTup args)) $ do
     mapM_ checkTy (map argType args)
     checkTy ty
 

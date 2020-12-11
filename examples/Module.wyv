@@ -1,0 +1,68 @@
+name Unit {z =>}
+name Option {o =>
+  type elem <= Top
+  def isSome(x:Unit):Int
+  def get(x:Unit):o.elem
+}
+
+name Product {p =>
+  type Ta <= Top
+  type Tb <= Top
+  val a : p.Ta
+  val b : p.Tb
+}
+
+name NatListInterface {nl =>
+  type t <= Top
+  val emp : nl.t
+  def ins(elem:Int,list:nl.t):nl.t
+  def rem(list:nl.t):Option {type elem = Product {type Ta = Int, type Tb = nl.t}}
+}
+
+name NAT_SET {s =>
+  type set <= Top
+  val emptyset : s.set
+  def insert(x:Int,S:s.set):s.set
+  def member(x:Int,S:s.set):Int
+}
+
+name LIST {l =>
+  type elem <= Top
+  type t <= Top
+  val emp : l.t
+  def ins(x:l.elem,L:l.t):l.t
+  def rem(list:l.t):Option {type elem = Product {type Ta = l.elem, type Tb = l.t}}
+}
+name Utils {z =>
+  def createNatSet(l:LIST {type elem = Int}):NAT_SET
+}
+
+let natlist : NatListInterface = undefined in
+
+let NatSet = new NAT_SET {s =>
+  type set = natlist.t
+  val emptyset : s.set = natlist.emp
+  def insert(x:Int,S:s.set):s.set {
+    natlist.ins(x,S)
+  }
+  def member(x:Int,S:s.set):Int {
+    undefined
+  }
+} in
+
+let utils = new Utils {z =>
+  def createNatSet(l:LIST {type elem = Int}):NAT_SET {
+    new NAT_SET {s =>
+      type set = l.t
+      val emptyset : s.set = l.emp
+      def insert(x:Int,S:s.set):s.set {
+        l.ins(x,S)
+      }
+      def member(x:Int,S:s.set):Int {
+        undefined
+      }
+    }
+  }
+} in
+
+0

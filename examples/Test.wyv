@@ -1,9 +1,13 @@
 name B {z =>
-  type T <= A
+  type T <= Top
+  val b : z.T
 }
-name A {z =>
-  val b : B
-  type T <= B
-}
-
-0
+let x =
+  let y = new B {z =>
+    type T = Int
+    val b : z.T = 0
+  } in
+  y.b
+in 
+x
+//now x has type y.T, but y is no longer in scope
