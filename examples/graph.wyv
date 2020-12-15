@@ -1,0 +1,83 @@
+//Family polymorphism example
+name Unit {z =>}
+name Node {n =>
+  type e <= Edge
+  def touches(edge:n.e):Int
+}
+name Edge {e =>
+  type n <= Node
+  val l : e.n
+  val r : e.n
+}
+
+name Graph {c =>
+  type n <= Node
+  type e <= Edge
+  def createNode(x:Unit):c.n
+  def createEdge(a:c.n,b:c.n):c.e
+}
+
+name OnOffNode {n =>
+  type e <= OnOffEdge
+  def touches(edge:n.e):Int
+}
+name OnOffEdge {e =>
+  type n <= OnOffNode
+  val enabled:Int
+  val l : e.n
+  val r : e.n
+}
+subtype OnOffNode <: Node
+subtype OnOffEdge <: Edge
+
+name Utils {u =>
+  def build(g:Graph,a:g.n,b:g.n):g.e
+}
+
+let g = new Graph {c =>
+  type n = Node
+  type e = Edge
+  def createNode(x:Unit):Node {
+    undefined
+  }
+  def createEdge(a:Node,b:Node):Edge {
+    new Edge {e =>
+      type n = Node
+      val l : e.n = a
+      val r : e.n = b
+    }
+  }
+} in
+let oog = new Graph {type n <= OnOffNode, type e <= OnOffEdge} {c =>
+  type n = OnOffNode
+  type e = OnOffEdge
+  def createNode(x:Unit):OnOffNode {
+    undefined
+  }
+  def createEdge(a:OnOffNode,b:OnOffNode):OnOffEdge {
+    new OnOffEdge {e =>
+      type n = OnOffNode
+      val enabled : Int = 1
+      val l : e.n = a
+      val r : e.n = b
+    }
+  }
+} in
+let utils = new Utils {u =>
+  def build(g:Graph,a:g.n,b:g.n):g.e {
+    g.createEdge(a,b)
+  }
+} in
+let unit = new Unit {z =>} in
+let n1 = g.createNode(unit) in
+let n2 = g.createNode(unit) in
+let oon1 = oog.createNode(unit) in
+let oon2 = oog.createNode(unit) in
+// OK
+let e12 = utils.build(g,n1,n2) in
+let ooe12 = utils.build(oog,oon1,oon2) in
+// type mismatch
+//let fail1 = utils.build(oog,n1,n2) in
+//let fail2 = utils.build(oog,oon1,n2) in
+
+ooe12

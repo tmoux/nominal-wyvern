@@ -47,7 +47,7 @@ runFile input = do
   putStrLn $ "Bound AST:\n" ++ show bound_ast
 
   let type_graph = getRight $ getGraph bound_ast 
-  putStrLn $ "Type graph:\n" ++ printList type_graph
+  putStrLn "Type graph:" >> mapM_ (putStrLn.show) type_graph
   let nocycles   = getRight $ checkCycles type_graph
   nocycles `seq` putStrLn $ "Type graph looks good"
   let ty         = getRight $ typecheck bound_ast 
@@ -57,6 +57,3 @@ getRight :: Either String b -> b
 getRight e = case e of
   Left err -> error err
   Right x  -> x
-
-printList [] = ""
-printList ls = foldr1 (\x y -> x ++ "\n" ++ y) (show <$> ls)

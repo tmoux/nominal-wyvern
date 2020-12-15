@@ -53,11 +53,11 @@ checkTLDecl (NameDecl _ n z decls) = do
               Var _ -> return ()
               Field p' _ -> notInPath p' path
 checkTLDecl (SubtypeDecl t1 n2) = do
-  (x1,decls1) <- unfoldExpanded t1
-  (x2,decls2) <- unfoldExpanded (Type n2 [])
+  (x1,decls1) <- unfold t1
+  (x2,decls2) <- unfold (Type n2 [])
   local (appendGamma [(x1,t1)]) $
-    isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= assertSub msg
-  where msg = printf "invalid subtype decl: %s not a subtype of %s" (show t1) (show n2)
+    isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= assertSub (msg decls1 (subst (Var x1) x2 decls2))
+  where msg decls1 decls2 = printf "invalid subtype decl: %s not a subtype of %s\n%s <:\n%s" (show t1) (show n2) (show decls1) (show decls2)
 
 typeNB :: TC m => Type -> m ()
 typeNB (Type base rs) = case base of
@@ -129,9 +129,7 @@ typeExpand tau@(Type base rs) = case base of
 typecheckExpr :: TC m => Expr -> m Type
 typecheckExpr e = case e of
   PathExpr p -> typecheckPath p
-  New ty z rs -> do
-    newTypeWF ty z rs
-    return ty
+  New ty z rs -> newTypeWF ty z rs >> return ty
   Call p meth es -> do
     pty <- typecheckPath p
     (z,decls) <- unfold pty
@@ -208,7 +206,7 @@ equalRefinement (RefineDecl t1 bound1 ty1) (RefineDecl t2 bound2 ty2)
 
 isSubtype :: TC m => Type -> Type -> m Bool
 isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = do
-  --traceM (show t1 ++ " <: " ++ show t2)
+  traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
   if eqBase then checkPerm isSubtypeRef r1 r2
             else s_Top ||^ s_Bot ||^ s_Name ||^ s_Upper ||^ s_Lower

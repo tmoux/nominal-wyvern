@@ -1,0 +1,16 @@
+@shape name Moveable {m =>
+  type T <= Top
+}
+name Point {p =>
+  type T = Point
+}
+subtype Point <: Moveable
+
+name FMoveable {x =>
+  type T <= Moveable {type T <= x.T}
+}
+
+let fm = new FMoveable {xx =>
+  type T = Point
+} in
+fm

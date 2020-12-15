@@ -107,9 +107,6 @@ ref [] = []
 ref (TypeMemDecl _ t b ty:xs) = RefineDecl t b ty:ref xs
 ref (_:xs) = ref xs
 
---check that all elements satisfy predicate
-checkAll :: Monad m => (a -> m Bool) -> [a] -> m Bool
-checkAll = allM
 --check that f is true for all zipped pairs
 checkPairwise :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
 checkPairwise f as bs = allM (uncurry f) (zip as bs)

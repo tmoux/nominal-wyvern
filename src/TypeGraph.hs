@@ -89,7 +89,7 @@ buildGraph (Program decls expr) = do
 -- (2) The upper bound of a shape is always a shape, and named shapes can only subtype named shapes.
 -- (3) Shapes cannot be refined in refinements.
 
---check condition (3), that no shapes appear in any refinements
+--check condition (3), that no shapes appear in the refinements of any type
 checkTy :: Type -> TGMonad ()
 checkTy (Type _ rs) = mapM_ check rs
   where check (RefineDecl _ _ (Type bt rt)) = do
@@ -97,6 +97,7 @@ checkTy (Type _ rs) = mapM_ check rs
           case btTA of
             Shape    -> invalidShape bt
             Material -> return ()
+          mapM_ check rt
         invalidShape shape = throwError $ printf "invalid shape usage: shape type %s used in refinement" (show shape)
 
 buildGraphDecl :: TopLevelDeclaration -> TGMonad ()
@@ -154,6 +155,7 @@ buildGraphExpr e = case e of
     xTy <- case annot of
       Just ty -> return ty
       Nothing -> local turnSubtypingOff $ typecheckExpr e1
+    checkTy xTy
     local (appendGamma [(x,xTy)]) $ buildGraphExpr e2
   TopLit -> return ()
   UndefLit -> return ()

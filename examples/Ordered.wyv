@@ -1,0 +1,31 @@
+@shape name Equatable {z =>
+  type T <= Top
+}
+@shape name Comparable {z =>
+  type T <= Top
+  def compare(a:z.T):Int
+}
+subtype Comparable <: Equatable
+
+name Container {z =>
+  type A <= Top
+  type T <= Container {type T = z.A}
+  def compare(a:z.T):Int
+}
+subtype Container <: Comparable
+
+name MyContainer {z =>
+  type A = MyContainer
+  type T <= Container {type T = z.A}
+  def compare(a:z.T):Int
+}
+subtype MyContainer <: Container
+
+let c = new MyContainer {z =>
+  type A = MyContainer
+  type T = Container {type T = z.A}
+  def compare(a:z.T):Int {
+    undefined
+  }
+} in
+c
