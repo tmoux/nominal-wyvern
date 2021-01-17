@@ -188,11 +188,13 @@ equalBaseType a b =
     (NamedType n1,NamedType n2) -> return $ n1 == n2
     (PathType p1 n1, PathType p2 n2)
       | p1 == p2 -> return $ n1 == n2
+      {-
       | otherwise -> do
           tau1 <- typecheckPath p1
           tau2 <- typecheckPath p2
           eqTy <- equalType tau1 tau2
           return $ eqTy && (n1 == n2)
+      -}
     _ -> return False
 
 equalType :: TC m => Type -> Type -> m Bool
@@ -206,7 +208,7 @@ equalRefinement (RefineDecl t1 bound1 ty1) (RefineDecl t2 bound2 ty2)
 
 isSubtype :: TC m => Type -> Type -> m Bool
 isSubtype t1@(Type b1 r1) t2@(Type b2 r2) = do
-  traceM (show t1 ++ " <: " ++ show t2)
+  --traceM (show t1 ++ " <: " ++ show t2)
   eqBase <- equalBaseType b1 b2
   if eqBase then checkPerm isSubtypeRef r1 r2
             else s_Top ||^ s_Bot ||^ s_Name ||^ s_Upper ||^ s_Lower
