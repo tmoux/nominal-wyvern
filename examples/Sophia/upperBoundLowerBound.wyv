@@ -1,0 +1,11 @@
+name A {z => 
+  type t <= Top
+}
+
+name B {z =>
+  type t >= Bot
+}
+
+subtype B <: A
+
+Top
