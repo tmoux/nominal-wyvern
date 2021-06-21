@@ -1,0 +1,16 @@
+name Tree {z => 
+  type T <= Top
+}
+name Leaf {z => 
+  type T <= Top
+}
+name Node {z =>
+  type T <= Top
+  val cur:z.T
+  val left : Tree {type T <= z.T}
+  val right : Tree {type T <= z.T}
+}
+subtype Leaf <: Tree
+subtype Node <: Tree
+
+Top
