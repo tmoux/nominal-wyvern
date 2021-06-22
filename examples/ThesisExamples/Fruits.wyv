@@ -1,0 +1,66 @@
+// fruits for sale
+name Apple {
+  val id : Int
+  val weight : Float
+}
+
+name Orange { 
+  val id : Int
+  val weight : Float
+}
+
+// a flavor of apple
+name McIntosh { 
+  val id : Int
+  val weight : Float
+}
+
+// a product of Apple Inc
+name Macintosh {
+  val id : Int
+  val weight : Float
+  val model : String
+  val price : BigInt
+}
+
+subtype McIntosh <: Apple
+
+//simple stock counter
+name StockCounts { 
+  val numApples : Int
+  val numOranges : Int
+}
+
+name StockTracker {
+  def empty () : StockCounts
+  def importApple (a : Apple, st : StockCounts) : StockCounts
+  def importOrange (o : Orange, st : StockCounts) : StockCounts
+}
+
+let a1 = new Apple { val id = 0, val weight = 90.0 } in 
+let o1 = new Orange { val id = 1, val weight = 80.0 } in 
+let m1 = new McIntosh { val id = 2, val weight = 70.0 } in
+let mac = new Macintosh { val id = 3, val weight = 100.0, val model = "macpro", val price = 2000 }
+
+let tracker = new StockTracker {
+  def empty () : StockCounts {
+      new StockCounts { val numApples = 0, val numOranges = 0 }
+  }
+  def importApple (a : Apples, st : StockCounts) : StockCounts {
+    val numApples = st.numApples + 1
+    val numOranges = st.numOranges
+  }
+  def importOrange (o : Orange, st : StockCounts) : StockCounts {
+    val numApples = st.numApples 
+    val numOranges = st.numOranges + 1
+  }
+}
+
+let empty_stock = tracker.empty() in
+stock = tracker.importApple(a1, empty_stock)
+
+
+Top
+
+
+
