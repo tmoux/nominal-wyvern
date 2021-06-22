@@ -1,22 +1,24 @@
-// fruits for sale
-name Apple {
-  val id : Int
-  val weight : Float
-}
+// current compiler seems to not recognize float,string types
 
-name Orange { 
+
+// fruits for sale
+name Apple { a => 
+  val id : Int
+  val weight : Int
+}
+name Orange {  o =>
   val id : Int
   val weight : Float
 }
 
 // a flavor of apple
-name McIntosh { 
+name McIntosh { mc => 
   val id : Int
   val weight : Float
 }
 
 // a product of Apple Inc
-name Macintosh {
+name Macintosh { ma => 
   val id : Int
   val weight : Float
   val model : String
@@ -26,12 +28,12 @@ name Macintosh {
 subtype McIntosh <: Apple
 
 //simple stock counter
-name StockCounts { 
+name StockCounts { sc =>
   val numApples : Int
   val numOranges : Int
 }
 
-name StockTracker {
+name StockTracker { st => 
   def empty () : StockCounts
   def importApple (a : Apple, st : StockCounts) : StockCounts
   def importOrange (o : Orange, st : StockCounts) : StockCounts
@@ -58,6 +60,8 @@ let tracker = new StockTracker {
 
 let empty_stock = tracker.empty() in
 stock = tracker.importApple(a1, empty_stock)
+
+
 
 
 Top
