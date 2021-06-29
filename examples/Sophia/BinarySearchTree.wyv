@@ -1,21 +1,21 @@
-name TreeType {z => 
+@shape name TreeType {z => 
   type A <= Top
   def compare (a : z.A, b : z.A) : Int
 }
-@shape name Tree {z => 
+name Tree {z => 
   type T <= TreeType
   def insert (elt : z.T) : Tree{type T <= z.T}
 }
 name Leaf {z => 
   type T <= TreeType
-  def insert (elt : z.T) : Tree{type T <= z.T}
+  //def insert (elt : z.T) : Tree{type T <= z.T}
 }
 name Node {z =>
   type T <= TreeType
   val cur:z.T
   val left : Tree {type T <= z.T}
   val right : Tree {type T <= z.T}
-  def insert (elt : z.T) : Tree{type T <= z.T}
+  //def insert (elt : z.T) : Tree{type T <= z.T}
 
 }
 
@@ -24,9 +24,17 @@ subtype Leaf <: Tree
 subtype Node <: Tree
 
 name Utils {u => 
-  def makeEmpty(a : TreeType) : Tree {type T <= a.A}
-  def makeTree(a : TreeType, l:Tree, r:Tree): Node {type T <= a.A}
+  def makeEmpty(a : TreeType) : Tree {type T <= TreeType}
 }
+
+let util = new Utils {u => 
+  def makeEmpty(a : TreeType) : Tree {type T <= TreeType} {
+    
+
+  }
+  def insert (a : TreeType, t : Tree) : Tree {type T <= TreeType } {
+    
+  }
 
 
 

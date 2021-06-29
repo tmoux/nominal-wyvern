@@ -1,0 +1,12 @@
+name Pair {z =>
+  type S <= Top
+  type T <= Top
+}
+name IPair {z =>
+  type S = Int
+  type T <= Top
+}
+subtype IPair <: Pair
+
+//we expect this is a valid subtype?
+assertNot IPair <: Pair {type S = Int}
