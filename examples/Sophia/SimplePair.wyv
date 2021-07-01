@@ -6,6 +6,7 @@ name IPair {z =>
   type S = Int
   type T <= Top
 }
+
 subtype IPair <: Pair
 
 //we expect this is a valid subtype?
