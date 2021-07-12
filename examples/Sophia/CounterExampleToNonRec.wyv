@@ -1,0 +1,21 @@
+name A {z => 
+  type t <= A {type t <= A}
+}
+
+name B {z => 
+  type t <= B {type t <= B}
+}
+
+subtype A <: B
+
+assert A <: B {type t <= B}
+
+// Typing Derivation under unfold non rec:
+// A -> B     {type t <= A {type t <= A}} <: {type t <= B}
+// A {type t <= A} <: B
+// A -> B     {type t <= A} <: {type t <= B {type t <= B}}
+// A <: B{{type t <= B}}
+// A -> B     {type t <= A {type t <= A}} <: {type t <= B} (loops :()
+// ...
+Top
+

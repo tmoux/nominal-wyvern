@@ -1,6 +1,0 @@
-name A {z => 
-  type T <= B}
-name B {z => 
-  type T <= A}
-
-Top
