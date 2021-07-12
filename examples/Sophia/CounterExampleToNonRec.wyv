@@ -8,7 +8,7 @@ name B {z =>
 
 subtype A <: B
 
-assert A <: B {type t <= B}
+assertNot A <: B {type t <= B}
 
 // Typing Derivation under unfold non rec:
 // A -> B     {type t <= A {type t <= A}} <: {type t <= B}
