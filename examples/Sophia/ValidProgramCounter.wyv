@@ -1,3 +1,4 @@
+//Is this actually a valid definition?
 name A {this =>
   type t <= A{type s <= A {type t = Bot}}
   type s <= Top
