@@ -4,13 +4,15 @@ name A {z =>
 
 name B {z => 
   type t <= B {type t <= B}
+  type k <= Top
 }
 
-subtype A <: B
+subtype B <: A
 
 assertNot A <: B {type t <= B}
 
 // Typing Derivation under unfold non rec:
+// This is actually not a valid program
 // A -> B     {type t <= A {type t <= A}} <: {type t <= B}
 // A {type t <= A} <: B
 // A -> B     {type t <= A} <: {type t <= B {type t <= B}}

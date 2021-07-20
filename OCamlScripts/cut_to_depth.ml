@@ -39,7 +39,7 @@ let refinement2 = [{tag = "t"; bo = Leq; t = {b = Name "A"; ref =
   [{tag = "t"; bo = Leq; t = {b = Name "A"; ref = 
   []}}]}}]
 let x = cut_ref 1 refinement1
-let y = cut_ref 2 refinement2
+let y = cut_ref 1 refinement2
 
 
   
