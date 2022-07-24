@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:nominal-wyvern"
+
+    - path: "app/Main.hs"
+      component: "nominal-wyvern:exe:nominal-wyvern"
+
+    - path: "tests"
+      component: "nominal-wyvern:test:nominal-wyvern-test"
