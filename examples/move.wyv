@@ -14,3 +14,8 @@ let fm = new FMoveable {xx =>
   type T = Point
 } in
 fm
+
+// I took this from a simplified example from Billy's thesis.
+// Here we expect that the new-expr can be created.
+// When checking the new-expr, we need to check that type T = Point <: type T <= Moveable {type T <= x.T}
+// Then we check that Point <: Moveable {type T <= x.T}, which is false under the current rules (similar to the Pair example).
