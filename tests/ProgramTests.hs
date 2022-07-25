@@ -38,7 +38,7 @@ testResultType file expected_type = do
   prelude <- readFile "lib/Prelude.wyv"
   input <- readFile file
   case runFile prelude input of
-    Left err -> assertFailure err
+    Left err -> assertFailure ("Expected success, but got error " ++ err)
     Right result_type -> show result_type @?= expected_type
 
 -- Checks that attempting to typecheck a file results in an error.
@@ -48,7 +48,7 @@ testFailure file expected_error = do
   input <- readFile file
   case runFile prelude input of
     Left err -> err @?= expected_error
-    Right _ -> assertFailure "Expected failure"
+    Right result_type -> assertFailure ("Expected failure, but successfully got result type " ++ show result_type)
 
 tests :: TestTree
 tests =
@@ -57,5 +57,17 @@ tests =
     [ testCase "AB.wyv" $ testResultType "examples/AB.wyv" "Top",
       testCase "BadEQ.wyv" $ testResultType "examples/BadEq.wyv" "Top",
       testCase "eqEx.wyv" $ testResultType "examples/eqEx.wyv" "Set {type elemT = Fruit {type T = Fruit}}",
-      testCase "loop.wyv" $ testFailure "examples/loop.wyv" "Cycle found: [C,A,B]"
+      testCase "graph.wyv" $ testResultType "examples/graph.wyv" "oog.e",
+      testCase "Ipair.wyv" $ testResultType "examples/Ipair.wyv" "Top",
+      -- note: this test demonstrates the limitations in expressivity of the current system.
+      -- Once the new rules are implemented, this test should be updated.
+      testCase "list.wyv" $ testResultType "examples/list.wyv" "Sum.T",
+      testCase "loop.wyv" $ testFailure "examples/loop.wyv" "Cycle found: [C,A,B]",
+      testCase "Module.wyv" $ testResultType "examples/Module.wyv" "Int",
+      -- testCase "move.wyv" $ testResultType "examples/move.wyv" "FMoveable",
+      testCase "NominalSubtypeTest.wyv" $ testResultType "examples/NominalSubtypeTest.wyv" "Top",
+      testCase "Ordered.wyv" $ testResultType "examples/Ordered.wyv" "MyContainer",
+      testCase "paths.wyv" $ testResultType "examples/paths.wyv" "cc.c.b.T",
+      testCase "Set.wyv" $ testResultType "examples/Set.wyv" "ISet",
+      testCase "test1.wyv" $ testResultType "examples/test1.wyv" "a.T"
     ]
