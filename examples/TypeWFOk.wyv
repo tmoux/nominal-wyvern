@@ -1,0 +1,7 @@
+name A {z =>
+    type T <= Top
+}
+let a = new A {type T <= Int} {z =>
+    type T = Int
+}
+in a

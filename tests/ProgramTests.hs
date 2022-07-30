@@ -65,9 +65,12 @@ tests =
       testCase "loop.wyv" $ testFailure "examples/loop.wyv" "Cycle found: [C,A,B]",
       testCase "Module.wyv" $ testResultType "examples/Module.wyv" "Int",
       -- testCase "move.wyv" $ testResultType "examples/move.wyv" "FMoveable",
+      -- The above test case does not typecheck under the current rules.
       testCase "NominalSubtypeTest.wyv" $ testResultType "examples/NominalSubtypeTest.wyv" "Top",
       testCase "Ordered.wyv" $ testResultType "examples/Ordered.wyv" "MyContainer",
       testCase "paths.wyv" $ testResultType "examples/paths.wyv" "cc.c.b.T",
       testCase "Set.wyv" $ testResultType "examples/Set.wyv" "ISet",
-      testCase "test1.wyv" $ testResultType "examples/test1.wyv" "a.T"
+      testCase "test1.wyv" $ testResultType "examples/test1.wyv" "a.T",
+      testCase "TypeWF.wyv" $ testFailure "examples/TypeWF.wyv" "Invalid refinement when checking wellformedness of type A {type T <= Top}: type T <= Top is not a subtype of type T <= Int",
+      testCase "TypeWFOk.wyv" $ testResultType "examples/TypeWFOk.wyv" "A {type T <= Int}"
     ]

@@ -1,4 +1,7 @@
-{-# LANGUAGE FlexibleContexts, ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Typecheck where
 
 import Control.Monad.Except
@@ -59,25 +62,29 @@ checkTLDecl (SubtypeDecl t1 n2) = do
     isStructSubtype decls1 (subst (Var x1) x2 decls2) >>= assertSub (msg decls1 (subst (Var x1) x2 decls2))
   where msg decls1 decls2 = printf "invalid subtype decl: %s not a subtype of %s\n%s <:\n%s" (show t1) (show n2) (show decls1) (show decls2)
 
-typeNB :: TC m => Type -> m ()
-typeNB (Type base rs) = case base of
-  TopType -> return ()
-  NamedType n -> return ()
-  BotType -> throwError "bot found when doing NB check"
-  PathType p t -> do
-    tau_p <- typecheckPath p
-    (z,decls) <- unfoldExpanded =<< typeExpand tau_p
-    TypeMemDecl _ _ bound ty <- lookupMemberDecls pred errMsg decls
-    case bound of
-      EQQ -> typeNB ty
-      _   -> throwError (printf "type member %s does not have an exact bound when doing NB check" (show t))
-    where pred (TypeMemDecl _ t' _ _) = t == t'
-          pred _ = False 
-          errMsg = printf "typeNB: couldn't find type member %s in path %s" t (show p)
+checkTypeWF :: forall m. TC m => Type -> m ()
+checkTypeWF (Type TopType []) = return ()
+checkTypeWF (Type BotType []) = return ()
+checkTypeWF (Type base rs) = do
+  Type n rn <- typeExpand (Type base rs)
+  (x_n, decls_n) <- unfoldExpanded (Type n [])
+  let typeMembers = rs ++ ref decls_n
+      findMatchingRefinement :: Refinement -> [(Refinement, Refinement)]
+      findMatchingRefinement l = (\r -> (l, r)) <$> filter (matchRef l) typeMembers
+      matchingRefinements :: [(Refinement, Refinement)]
+      matchingRefinements = concatMap findMatchingRefinement rn
+      checkRefinementInvalidSubtype :: (Refinement, Refinement) -> m Bool
+      checkRefinementInvalidSubtype (l, r) = local (appendGamma [(x_n, (Type base rs))]) $ not <$> isSubtypeRef l r
+  
+  maybeViolatingRefinements <- findM checkRefinementInvalidSubtype matchingRefinements
+  case maybeViolatingRefinements of
+    Nothing -> return ()
+    Just (l, r) -> throwError (printf "Invalid refinement when checking wellformedness of type %s: %s is not a subtype of %s" (show (Type base rs)) (show l) (show r))
 
+-- T-New
 newTypeWF :: TC m => Type -> Binding -> [MemberDefinition] -> m ()
 newTypeWF ty x defns = do
-  typeNB ty
+  checkTypeWF ty
   Type n rs <- typeExpand ty
   (x_n,decls_n) <- unfoldExpanded (Type n [])
   let tau_x = Type n (ref.sig $ defns)
@@ -252,7 +259,7 @@ isSubtypeBase (Type b1 r1) b2 = do
              equalBaseType b1 baseL
          &&^ checkPerm isSubtypeRef r1 rsL
          &&^ isSubtypeBase (Type baseR r1) b2
-        pred _ = return False 
+        pred _ = return False
 
 isSubtypeRef :: TC m => Refinement -> Refinement -> m Bool
 isSubtypeRef a b = isSubtypeMemDecl (refToDecl a) (refToDecl b)
