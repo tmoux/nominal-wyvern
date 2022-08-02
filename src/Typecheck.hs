@@ -297,3 +297,42 @@ isSubtypeMemDecl a b = case (a,b) of
       retSubtype <- isSubtype ty1 ty2' --cov
       return $ (f1 == f2) && argsSubtype && retSubtype
   _ -> return False
+
+expandExpr :: Expr -> Expr
+expandExpr e =
+  case e of
+  New ty z rn -> case ty of 
+    NamedType _ ->
+      let (x_n,decls_n) = unfoldExpanded (Type ty []) in
+        let typeMembers = ref decls_n
+            findMatchingRefinement :: Refinement -> [(Refinement, Refinement)]
+            findMatchingRefinement l = (\r -> (l, r)) <$> filter (matchRef l) typeMembers
+            matchingRefinements :: [(Refinement, Refinement)]
+            matchingRefinements = concatMap findMatchingRefinement rn --TODO change this into a TypeUtil
+      
+            updateRef :: (Refinement,Refinement) -> Refinement
+            updateRef refs = 
+              updateRefsHelper :: (Refinement,Refinement) -> Int -> Refinement
+              updateRefsHelper full_ref ref depth = 
+                if getDepth >= depth do
+                  cutToDepth full_ref depth
+                else do
+                  (nl,bl,(basetyl,rl)) <- ref
+                  case basetyl of
+                  NamedType _ -> 
+                    if rl == [] do
+                      let (tags,decls) = unfoldExpanded (Type basetyl rl) in
+                          newRefs = ref decls
+                          newFull = (nl,bl,(basetyl,newRefs))
+                          newDepth = depth + getDepth(newRefs)
+                          throwError (printf "unimplemented")
+                    else do 
+                          throwError(printf "unimplemented")
+
+
+                                
+                  _ -> throwError (printf "unimplemented")
+                    
+            newRef = mapM updateRef (matchingRefinements) 
+      _ -> throwError (printf "unimplemented") 
+    _ throwError (printf "unimplemented")
