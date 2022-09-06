@@ -1,0 +1,5 @@
+name A {z => 
+  type s <= Int
+}
+
+assert A <: A{type s <= Top}

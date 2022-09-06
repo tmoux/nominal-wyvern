@@ -14,9 +14,9 @@ assert A {type t <= A {type s <= A {type t = Bot}}} <: B
 
 //Under new rule:
 //A -> B          A{type t <= A {type s <= A {type t = Bot}}} <: B          Top <= Top
-//A -> B          A{type t <= A {type s <= A {type t = Bot}}, type s = Top} <: B{type t <= B, type s <= Top}
-//                {type t <= A {type s <= A {type t = Bot}}, type s = Top} <: {type t <= B, type s <= Top}
-//                A {type s <= A {type t = Bot}} <= B
+//A -> B          A{type t <= A {type s <= A {type t = Bot}}, type s <= Top} <: B{type t <= B, type s <= Top}
+//                {type t <= A {type s <= A {type t = Bot}}, type s <= Top} <: {type t <= B, type s <= Top}
+//                A {type s <= A {type t = Bot}} <: B // Shouldn't be unfolding t here
 // A -> B         A {type t <=  A {type s <= A {type t = Bot}}, type s <= A {type t = Bot}}  <: B {type t = B, type s <= Top}  
 // A -> B         {type t <=  A {type s <= A {type t = Bot}}, type s <= A {type t = Bot}} <:  {type t = B, type s <= Top}  
 //                A {type s <= A {type t = Bot}} <: B ...

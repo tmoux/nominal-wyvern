@@ -54,13 +54,6 @@ lookupMemberDecls pred msg list =
     Just x -> return x
     Nothing -> throwError msg
 
-lookupGamma' :: TC m => Binding -> m Type
-lookupGamma' v = do
-  search <- reader (lookup v . gamma)
-  case search of
-    Just x -> return x
-    Nothing -> throwError (printf "failed to lookup variable %s" (show v))
-
 lookupGamma :: TC m => Binding -> m Type
 lookupGamma v = do
   search <- reader (lookup v . gamma)
@@ -132,12 +125,6 @@ checkPerm f as bs = allM (\b -> anyM (flip f b) as) bs
 
 checkPermDual :: Monad m => (a -> a -> m Bool) -> [a] -> [a] -> m Bool
 checkPermDual f as bs = checkPerm f as bs &&^ checkPerm f bs as
-
-getDepth :: Refinement -> Int
-getDepth r = 3
-
-cutToDepth :: Refinement -> Int -> Refinement
-cutToDepth r depth = r --TODO actually make this cutToDepth
 
 --substitution
 --substitute PATH for BINDING (p/x) in [path/type/member decl]
