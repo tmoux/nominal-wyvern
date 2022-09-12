@@ -14,29 +14,43 @@ import Data.Maybe
 import Debug.Trace
 import PrettyPrint ()
 import Syntax
-import Syntax (Refinement (RefineDecl))
 import Text.Printf
 import TypeUtil
 
-typecheck prog = runExcept (runReaderT (typecheckProgram prog) emptyCtx)
+typecheck prog = runExcept (runReaderT (fullTypecheck prog) emptyCtx)
 
-typecheckProgram :: TC m => Program -> m Type
-typecheckProgram (Program decls expr) = do
+fullTypecheck :: TC m => Program -> m Type
+fullTypecheck (Program decls expr) = do
   let (names, subs) = partition split decls
   mapM_ checkTLDecl names
   local (appendTopLevel decls) $ do
     ctx <- ask
     --traceM ("ctx: " ++ (show $ toplevel ctx))
     mapM_ checkTLDecl subs
-    typecheckExpr expr
+    final_p <- preprocess (Program decls expr)
+    typecheckProgram final_p
   where
-    split (NameDecl _ _ _ _) = True
+    split NameDecl {} = True
     split (SubtypeDecl _ _) = False
+
+typecheckProgram :: TC m => Program -> m Type
+typecheckProgram (Program decls expr) = do
+  -- let (names, subs) = partition split decls
+  -- mapM_ checkTLDecl names
+  -- local (appendTopLevel decls) $ do
+  --   ctx <- ask
+  --   --traceM ("ctx: " ++ (show $ toplevel ctx))
+  --   mapM_ checkTLDecl subs
+  typecheckExpr expr
+
+-- where
+--   split NameDecl {} = True
+--   split (SubtypeDecl _ _) = False
 
 checkTLDecl :: TC m => TopLevelDeclaration -> m ()
 checkTLDecl (NameDecl _ n z decls) = do
   let fields = getFields decls
-      paths = map (\v -> Field (Var z) v) fields
+      paths = map (Field (Var z)) fields
       types = getTypes decls
   --traceM ("fields = " ++ show fields)
   --traceM ("paths = " ++ show paths)
@@ -330,14 +344,31 @@ expand ty@(Type t1 _) (Type t2 refs2) = do
               _ -> Nothing
           )
           memberDecls
-  foo <-
+  final_refs <-
     mapM
       ( \(RefineDecl n2 _ t2') ->
           case find (\(RefineDecl n1 _ _) -> n1 == n2) refs1 of
             Just (RefineDecl n1 b1 t1') -> do
               res <- expand t1' t2'
               return (RefineDecl n1 b1 res)
-            Nothing -> fail "oh no"
+            Nothing -> fail "this program doesn't type"
       )
       refs2
-  return (Type t1 foo)
+  return (Type t1 final_refs)
+
+preprocess :: TC m => Program -> m Program
+preprocess (Program decls expr) = do
+  p_expr <- preprocessExpr expr
+  return (Program decls p_expr)
+
+preprocessExpr :: TC m => Expr -> m Expr
+preprocessExpr expr = case expr of
+  PathExpr pa -> return expr
+  Call pa s pas -> return expr
+  New ty bind mds -> return expr
+  Let bind m_ty ex ex' -> return expr
+  TopLit -> return expr
+  UndefLit -> return expr
+  Assert b ty ty' -> do
+    expanded_ty <- expand ty ty'
+    return (Assert b expanded_ty ty')

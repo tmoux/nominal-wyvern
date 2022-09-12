@@ -9,6 +9,7 @@ import Control.Monad.Reader
 import Data.Functor.Identity
 import Data.List (find)
 import Data.Maybe (isNothing)
+import Debug.Trace
 import PrettyPrint
 import Syntax
 import Text.Printf
@@ -63,6 +64,8 @@ lookupGamma v = do
 
 lookupTLDecls :: TC m => (TopLevelDeclaration -> Bool) -> String -> m TopLevelDeclaration
 lookupTLDecls pred msg = do
+  ctx <- ask
+  traceM ("toplevel" ++ show (toplevel ctx))
   search <- reader (find pred . toplevel)
   case search of
     Just x -> return x
