@@ -160,7 +160,9 @@ typeExpand tau@(Type base rs) = case base of
 typecheckExpr :: TC m => Expr -> m Type
 typecheckExpr e = case e of
   PathExpr p -> typecheckPath p
-  New ty z rs -> newTypeWF ty z rs >> return ty
+  New ty z rs ->
+    newTypeWF ty z rs
+      >> return ty
   Call p meth es -> do
     pty <- typecheckPath p
     (z, decls) <- unfold pty
@@ -169,16 +171,17 @@ typecheckExpr e = case e of
     DefDecl m args retTy <- lookupMemberDecls pred cantFindDef decls
     --subfunc creates the correct type by subbing in the arguments and path p
     let subfunc ty = foldr (\(Arg x _, exp) -> subst exp x) (subst p z ty) (zip args es)
-    let argsTypeSubbed = map subfunc (map (\(Arg _ ty) -> ty) args) --correct arg types
+    let argsTypeSubbed = map (subfunc . (\(Arg _ ty) -> ty)) args --correct arg types
     esTys <- mapM typecheckPath es --these are the calling types
     --subtype check
-    (return (length esTys == length argsTypeSubbed)) >>= assert wrongLength
+    assert wrongLength (length esTys == length argsTypeSubbed)
+    es_expanded <- zipWithM expand esTys argsTypeSubbed
     checkPairwise isSubtype esTys argsTypeSubbed >>= assertSub (callNotSubtype esTys argsTypeSubbed)
     return $ subfunc retTy --subbed return type
     where
       cantFindDef = "failed to find method name " ++ meth
       wrongLength = printf "calling %s: wrong # of arguments" meth
-      callNotSubtype esTys argsTypeSubbed = (printf "calling %s: subtype check failed when calling method, %s not subtypes of %s" meth (show esTys) (show argsTypeSubbed))
+      callNotSubtype esTys argsTypeSubbed = printf "calling %s: subtype check failed when calling method, %s not subtypes of %s" meth (show esTys) (show argsTypeSubbed)
   Let x annot e1 e2 -> do
     t1 <- typecheckExpr e1
     xTy <- case annot of
@@ -315,8 +318,12 @@ isSubtypeMemDecl a b = case (a, b) of
       _ -> return False
     | otherwise -> return False
     where
-      checkCov = isSubtype ty1 ty2
-      checkContra = isSubtype ty2 ty1
+      checkCov = do
+        expanded_ty1 <- expand ty1 ty2
+        isSubtype expanded_ty1 ty2
+      checkContra = do
+        expanded_ty2 <- expand ty2 ty1
+        isSubtype expanded_ty2 ty1
   (ValDecl v1 t1, ValDecl v2 t2) ->
     (return $ v1 == v2) &&^ isSubtype t1 t2
   (DefDecl f1 args1 ty1, DefDecl f2 args2 ty2) -> do
@@ -364,9 +371,14 @@ preprocess (Program decls expr) = do
 preprocessExpr :: TC m => Expr -> m Expr
 preprocessExpr expr = case expr of
   PathExpr pa -> return expr
-  Call pa s pas -> return expr
+  Call pa method es -> return expr
+  -- pa is path, s is method name, pas is arguments
+
   New ty bind mds -> return expr
-  Let bind m_ty ex ex' -> return expr
+  Let bind m_ty ex ex' -> do
+    left_ex <- preprocessExpr ex
+    right_ex <- preprocessExpr ex'
+    return (Let bind m_ty left_ex right_ex)
   TopLit -> return expr
   UndefLit -> return expr
   Assert b ty ty' -> do
